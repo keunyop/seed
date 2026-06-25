@@ -1,0 +1,35 @@
+import { BarChart3, CalendarCheck2, Home, UsersRound } from "lucide-react";
+
+const items = [
+  { id: "home", label: "홈", href: "/dashboard", icon: Home },
+  { id: "attendance", label: "출석", href: "/attendance", icon: CalendarCheck2 },
+  { id: "children", label: "아이들", href: "/children", icon: UsersRound },
+  { id: "reports", label: "통계", href: "/reports", icon: BarChart3 },
+];
+
+type BottomNavigationProps = {
+  active: "home" | "attendance" | "children" | "reports";
+};
+
+export function BottomNavigation({ active }: BottomNavigationProps) {
+  return (
+    <nav
+      aria-label="주요 메뉴"
+      className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-cloud-gray bg-white px-2 pb-[calc(8px+var(--safe-bottom))] pt-2"
+    >
+      <div className="mx-auto grid max-w-[520px] grid-cols-4 gap-1">
+        {items.map((item) => (
+          <a
+            aria-current={item.id === active ? "page" : undefined}
+            className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-[12px] px-1 text-xs font-extrabold text-graphite transition hover:bg-duo-green-light aria-[current=page]:bg-duo-green-light aria-[current=page]:text-duo-green-dark"
+            href={item.href}
+            key={item.href}
+          >
+            <item.icon aria-hidden="true" className="h-5 w-5" />
+            <span>{item.label}</span>
+          </a>
+        ))}
+      </div>
+    </nav>
+  );
+}
