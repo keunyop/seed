@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Baby, Plus, Search } from "lucide-react";
+import { ChildAvatar } from "@/components/domain/child-avatar";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
 import { ChildDetailModal } from "@/components/domain/child-detail-modal";
 import { SaveStatus } from "@/components/domain/save-status";
@@ -28,10 +29,10 @@ function getParentNamesLabel(child: FamilyChild) {
     .filter((name) => name.length > 0);
 
   if (parentNames.length === 0) {
-    return "보호자 미입력";
+    return "미입력";
   }
 
-  return `보호자 ${parentNames.join(", ")}`;
+  return parentNames.join(", ");
 }
 
 export function ChildrenClient() {
@@ -121,18 +122,7 @@ export function ChildrenClient() {
                     onClick={() => setSelectedChild(child)}
                     type="button"
                   >
-                    {child.photoDataUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        alt={`${child.name} 사진`}
-                        className="h-14 w-14 shrink-0 rounded-full border-2 border-cloud-gray object-cover"
-                        src={child.photoDataUrl}
-                      />
-                    ) : (
-                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-duo-green-light text-lg font-extrabold text-duo-green-dark">
-                        {child.name.slice(0, 1)}
-                      </div>
-                    )}
+                    <ChildAvatar gender={child.gender} name={child.name} photoDataUrl={child.photoDataUrl} />
                     <div className="min-w-0">
                       <h3 className="text-lg font-extrabold text-almost-black">{child.name}</h3>
                       <p className="mt-1 text-sm font-bold text-graphite">

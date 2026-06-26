@@ -3,12 +3,17 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { createDefaultFamilyOpenStore } from "@/lib/family/default-store";
-import type { Database, Json } from "@/types/database.generated";
+import { LEGACY_LOCAL_STORE_KEY } from "@/lib/family/store-persistence";
+import { saveFamilyOpenStoreWithClient } from "@/lib/family/supabase-store";
+import type { Database } from "@/types/database.generated";
 
 test.beforeEach(async ({ page }) => {
   await resetRemoteStore();
   await page.goto("/dashboard");
-  await page.evaluate(() => window.localStorage.clear());
+  await page.evaluate((legacyLocalStoreKey) => {
+    window.localStorage.clear();
+    window.localStorage.setItem(legacyLocalStoreKey, "legacy");
+  }, LEGACY_LOCAL_STORE_KEY);
   await page.reload();
 });
 
@@ -47,13 +52,10 @@ async function resetRemoteStore() {
       detectSessionInUrl: false,
     },
   });
-  const { error } = await supabase.from("family_open_app_state").upsert({
-    id: "default",
-    state: createDefaultFamilyOpenStore() as unknown as Json,
-  });
+  const result = await saveFamilyOpenStoreWithClient(supabase, createDefaultFamilyOpenStore());
 
-  if (error) {
-    throw new Error(`Supabase 테스트 상태 초기화 실패: ${error.message}`);
+  if (!result.ok) {
+    throw new Error(`Supabase 테스트 상태 초기화 실패: ${result.message}`);
   }
 }
 
@@ -63,7 +65,10 @@ async function expectNoHorizontalOverflow(page: import("@playwright/test").Page)
 }
 
 async function expectNoAppStateLocalStorage(page: import("@playwright/test").Page) {
-  const storedState = await page.evaluate(() => window.localStorage.getItem("seed-family-open-store-v1"));
+  const storedState = await page.evaluate(
+    (legacyLocalStoreKey) => window.localStorage.getItem(legacyLocalStoreKey),
+    LEGACY_LOCAL_STORE_KEY,
+  );
   expect(storedState).toBeNull();
 }
 
@@ -221,7 +226,7 @@ test("Supabase-backed attendance flow supports teacher and class management", as
   await addChildDialog.locator("select").nth(0).selectOption("female");
   await addChildDialog.locator("input[type='date']").nth(0).fill(`2018-${String(month).padStart(2, "0")}-15`);
   await addChildDialog.getByLabel("관계").selectOption("mother");
-  await addChildDialog.locator("input").nth(4).fill("테스트 보호자");
+  await addChildDialog.locator("input").nth(4).fill("김나무");
   await addChildDialog.locator("input").nth(5).fill("010-0000-0000");
   await addChildDialog.locator("input").nth(6).fill("테스트 주소");
   await addChildDialog.locator("input").nth(7).fill("parent@example.com");
@@ -230,8 +235,10 @@ test("Supabase-backed attendance flow supports teacher and class management", as
   await addChildDialog.locator("button[type='submit']").click();
   await expect(page.getByRole("heading", { name: childName })).toBeVisible();
   const childCard = page.locator("button").filter({ hasText: childName }).first();
-  await expect(childCard.getByText("보호자 테스트 보호자")).toBeVisible();
+  await expect(childCard.getByText("김나무", { exact: true })).toBeVisible();
+  await expect(childCard.getByText("보호자 김나무", { exact: true })).toHaveCount(0);
   await expect(childCard.getByText("등록일")).toHaveCount(0);
+  await expect(childCard.getByRole("img", { name: `${childName} 아바타` })).toHaveAttribute("data-gender", "female");
   await waitForSaved(page);
 
   await childCard.click();
@@ -245,6 +252,7 @@ test("Supabase-backed attendance flow supports teacher and class management", as
   await page.getByRole("link", { name: new RegExp(editedClassName) }).click();
   await waitForSaved(page);
   const row = page.locator("article").filter({ hasText: childName });
+  await expect(row.getByRole("img", { name: `${childName} 아바타` })).toHaveAttribute("data-gender", "female");
   await expect(row.locator("button[aria-pressed]").nth(0)).toHaveAttribute("aria-pressed", "false");
   await expect(row.locator("button[aria-pressed]").nth(1)).toHaveAttribute("aria-pressed", "false");
   await row.locator("button").first().click();

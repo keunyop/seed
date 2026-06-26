@@ -1,5 +1,26 @@
 # Progress
 
+## 2026-06-26 legacy localStorage 정리
+
+### 확인
+- 앱 런타임은 Supabase 정규화 테이블을 읽고 쓰며, 브라우저 localStorage를 상태 저장소로 사용하지 않는다.
+- 코드에 남은 localStorage 접근은 E2E 검증과 legacy 키 삭제 목적뿐이다.
+- Supabase `family_open_app_state` 단일 JSON 테이블은 로컬 DB가 아니라 원격 DB의 이관 원본/백업 테이블이다. 운영 정규화 migration이 끝나기 전 삭제하면 데이터 손실 위험이 있어 삭제하지 않았다.
+
+### 완료
+- legacy localStorage 키 `seed-family-open-store-v1`를 상수화했다.
+- 앱 시작 시 해당 키가 남아 있으면 삭제하도록 `useFamilyOpenStore`에 best-effort cleanup을 추가했다.
+- E2E 회귀 테스트가 legacy localStorage 키를 심은 뒤 앱이 제거하는지 확인하도록 갱신했다.
+- README와 MVP 설계 문서에 localStorage 미사용 및 legacy 키 삭제 정책을 반영했다.
+
+### 검증
+- `pnpm run typecheck`: 통과
+- `.\node_modules\.bin\eslint.cmd .`: 통과
+- `.\node_modules\.bin\vitest.cmd run`: 3 files, 10 tests 통과
+- `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`: 1 file, 1 test 통과
+- `pnpm run build`: 통과
+- Playwright E2E는 원격 Supabase 상태를 초기화하는 테스트라 운영 데이터 변경 위험 때문에 실행하지 않았다.
+
 ## 2026-06-23
 
 ### 완료
@@ -353,9 +374,60 @@
 
 ### 완료
 - `/children` 등록 아이 목록 카드에서 보호자 수와 등록일 대신 등록된 보호자 이름을 표시하도록 변경했다.
-- 보호자 이름이 없으면 `보호자 미입력`으로 표시한다.
+- 보호자 이름이 없으면 `미입력`으로 표시한다.
 - 아이 상세 모달의 등록일 입력과 기존 저장 데이터는 유지해 데이터 호환성을 보존했다.
 - E2E 기대값과 `docs/MVP_DESIGN_SPEC.md`의 아이 목록 표시 설명을 갱신했다.
+
+### 검증
+- `pnpm run typecheck`: 통과
+- `.\node_modules\.bin\eslint.cmd .`: 통과
+- `.\node_modules\.bin\vitest.cmd run`: 3 files, 10 tests 통과
+- `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`: 1 file, 1 test 통과
+- `pnpm run build`: 통과
+- Playwright E2E는 원격 Supabase 상태를 초기화하는 테스트라 운영 데이터 변경 위험 때문에 실행하지 않았다.
+
+### 다음 단계
+- 운영 반영에는 재배포가 필요하다.
+
+## 2026-06-26 정규화 DB 스키마 개편
+
+### 제품 결정
+- 기존 `family_open_app_state` 단일 JSON 저장은 이관 원본과 백업 용도로 유지한다.
+- 앱의 주 저장 기준은 정규화 테이블로 전환한다: `organizations`, `teachers`, `classes`, `children`, `child_parents`, `attendance_sessions`, `attendance_records`.
+- 로그인 없는 패밀리 오픈 UX는 유지하되, 모든 업무 테이블에 `organization_id`와 RLS를 둔다.
+- 이번 단계의 RLS는 기본 조직 1개에 대해 `anon`/`authenticated` 읽기·쓰기를 허용한다. 공개 운영 수준의 권한 분리는 Auth 또는 공유 코드 결정 후 별도 작업으로 진행한다.
+
+### 완료
+- `supabase/migrations/20260626000200_normalized_family_schema.sql` 추가.
+- 새 migration에 정규화 테이블, 인덱스, updated_at trigger, RLS 정책, grant를 포함했다.
+- 기존 `family_open_app_state` JSON 데이터를 새 테이블로 이관하는 SQL을 migration에 포함했다.
+- Supabase 타입 정의를 신규 테이블 기준으로 갱신했다.
+- 앱 저장 어댑터를 단일 JSON upsert에서 정규화 테이블 읽기/쓰기 방식으로 교체했다.
+- 저장 어댑터가 현재 store에 없는 반, 선생님, 아이 행을 정리하도록 해 테스트 초기화와 상태 덮어쓰기가 새 테이블 기준으로 동작하게 했다.
+- Playwright 원격 초기화 helper도 새 저장 어댑터를 사용하도록 갱신했다.
+- `README.md`, `instruction.md`, `docs/MVP_DESIGN_SPEC.md`, DB 테스트를 정규화 DB 기준으로 갱신했다.
+
+### 검증
+- `pnpm run typecheck`: 통과
+- `.\node_modules\.bin\eslint.cmd .`: 통과
+- `.\node_modules\.bin\vitest.cmd run`: 3 files, 10 tests 통과
+- `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`: 1 file, 1 test 통과
+- `pnpm run build`: 통과
+- Playwright E2E는 원격 Supabase 상태를 초기화하는 테스트라 운영 데이터 변경 위험 때문에 실행하지 않았다.
+
+### 다음 단계
+- 운영 Supabase에 `20260626000200_normalized_family_schema.sql` migration을 적용해야 배포본이 새 테이블을 사용할 수 있다.
+- migration 적용 전 이 코드가 먼저 배포되면 신규 테이블이 없어 `저장 실패`가 표시될 수 있다.
+- 공개 운영 전에는 로그인 또는 공유 코드 기반 권한 정책을 결정하고 RLS를 기본 조직 공개 쓰기에서 교체해야 한다.
+
+## 2026-06-26 아이 아바타 표시 정리
+
+### 완료
+- `/children` 등록 아이 목록에서 보호자 이름 앞 `보호자` 접두어를 제거했다.
+- 사진이 없는 아이 아바타를 공통 컴포넌트로 분리하고, 남자/여자/미입력 성별에 따라 다른 색상을 적용했다.
+- `/attendance` 출석 체크 행의 아이 이름 앞에도 아이 목록과 같은 아바타를 추가했다.
+- 아이 상세 모달의 사진 미입력 상태도 같은 성별별 아바타 색상을 따른다.
+- E2E 기대값과 `docs/MVP_DESIGN_SPEC.md`의 화면 설명을 갱신했다.
 
 ### 검증
 - `pnpm run typecheck`: 통과

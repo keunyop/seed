@@ -1,5 +1,42 @@
 # Goal
 
+## Addendum: legacy localStorage 정리
+
+## 작업
+- 한 문장으로 설명: 브라우저에 남아 있을 수 있는 과거 localStorage 앱 상태 키를 삭제하고, 현재 저장 기준이 Supabase DB임을 문서화한다.
+- 사용자에게 주는 가치: 예전 로컬 저장 데이터가 화면 상태와 혼동되지 않고, 새 화면은 DB 상태만 기준으로 동작한다.
+
+## 범위
+### 포함
+- legacy localStorage 키 `seed-family-open-store-v1` 상수화
+- 앱 시작 시 legacy localStorage 키 삭제
+- E2E 회귀 검증 갱신
+- README, MVP 설계 문서, 진행 기록 갱신
+
+### 제외
+- 운영 Supabase `family_open_app_state` 테이블 삭제
+- 운영 DB 데이터 삭제/초기화
+- Auth/RLS 권한 구조 변경
+
+## 결정 기록
+- [2026-06-26] 브라우저 localStorage는 앱 상태 저장소로 사용하지 않으며, 남아 있는 legacy 키는 앱 시작 시 삭제한다.
+- [2026-06-26] Supabase `family_open_app_state`는 로컬 DB가 아니라 원격 이관 원본/백업 테이블이다. 운영 정규화 migration 완료 전 삭제하면 데이터 손실 위험이 있어 삭제하지 않는다.
+
+## 완료 조건
+- [x] 앱 시작 시 `seed-family-open-store-v1` localStorage 키가 삭제된다.
+- [x] 앱은 localStorage에서 상태를 읽거나 localStorage에 상태를 저장하지 않는다.
+- [x] 문서에 localStorage 미사용 및 legacy 키 삭제 정책을 반영한다.
+- [x] typecheck/lint/unit/DB/build 검증이 통과한다.
+- [x] E2E는 운영 DB 변경 위험 때문에 실행하지 않고 사유를 기록한다.
+
+## 검증 결과
+- `pnpm run typecheck`: 통과
+- `.\node_modules\.bin\eslint.cmd .`: 통과
+- `.\node_modules\.bin\vitest.cmd run`: 3 files, 10 tests 통과
+- `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`: 1 file, 1 test 통과
+- `pnpm run build`: 통과
+- Playwright E2E는 원격 Supabase 상태를 초기화하는 테스트라 운영 데이터 변경 위험 때문에 실행하지 않았다.
+
 ## 작업
 - 한 문장으로 설명: 아이, 선생님, 반 삭제를 상세 모달 안에서 confirm 후 실행되도록 정리한다.
 - 사용자에게 주는 가치: 목록에서 실수로 삭제하지 않고, 상세 정보를 확인한 뒤 삭제할 수 있다.
@@ -228,6 +265,159 @@
 # Goal Addendum
 
 ## 작업
+- 한 문장으로 설명: 단일 JSON 저장 구조를 정규화된 Supabase 업무 테이블 구조로 개편한다.
+- 사용자에게 주는 가치: 아이, 보호자, 반, 선생님, 출석 기록이 각각 테이블로 관리되어 검색·통계·이력·권한 분리의 기반이 생긴다.
+
+## 범위
+### 포함
+- `organizations`, `teachers`, `classes`, `children`, `child_parents`, `attendance_sessions`, `attendance_records` migration 추가
+- 기존 `family_open_app_state` JSON 데이터를 정규화 테이블로 이관하는 SQL 포함
+- 기본 조직 1개 기준의 RLS 정책과 인덱스 추가
+- 앱 저장 계층을 정규화 테이블 읽기/쓰기 기준으로 교체
+- DB 테스트, 타입, 문서, 진행 기록 갱신
+
+### 제외
+- 운영 Supabase에 migration 직접 적용
+- 로그인, 초대, 역할별 UI, 교사별 접근 제한 도입
+- 사진 파일 스토리지 전환
+- 다중 조직 전환 UI
+- 운영 데이터 삭제 또는 초기화
+
+## 현재 상태
+- 관련 화면/경로: 전체 앱 저장 흐름(`/dashboard`, `/attendance`, `/children`, `/teachers`, `/settings`, `/reports`)
+- 관련 테이블/마이그레이션: 현재 `family_open_app_state` 단일 JSON 행만 사용
+- 관련 테스트: DB migration 문자열 테스트, family stats unit, Playwright 앱 흐름
+
+## 가정과 결정 기록
+- [2026-06-26] 현재 사용자 경험을 깨지 않기 위해 로그인 없는 패밀리 오픈은 유지한다. 대신 모든 업무 테이블에 `organization_id`를 두고 RLS를 켠다.
+- [2026-06-26] 이번 단계의 RLS는 기본 조직 1개에 대해 `anon`/`authenticated` 읽기·쓰기를 허용한다. 완전한 보안을 위해서는 다음 단계에서 로그인 또는 공유 코드를 결정해야 한다.
+- [2026-06-26] 기존 JSON 테이블은 백업과 이관 원본으로 유지하고 삭제하지 않는다.
+- [2026-06-26] 사진은 현재처럼 Data URL 텍스트로 유지한다. Storage 전환은 별도 결정이 필요하다.
+- [2026-06-26] 앱 내부 타입과 화면 API는 우선 유지하고, 저장 어댑터만 정규화 테이블을 바라보게 한다.
+
+## 완료 조건
+- [x] 정규화된 업무 테이블 migration이 추가된다.
+- [x] 기존 JSON 데이터를 정규화 테이블로 이관할 수 있는 SQL이 포함된다.
+- [x] 앱 로딩이 단일 JSON이 아니라 정규화 테이블에서 상태를 조립한다.
+- [x] 앱 저장이 단일 JSON upsert가 아니라 정규화 테이블에 저장한다.
+- [x] 모든 신규 업무 테이블에 RLS가 켜져 있다.
+- [ ] 필요한 테스트가 갱신되고 통과한다. typecheck, ESLint, unit, DB, build는 통과했으나 원격 DB 쓰기 위험 때문에 E2E는 미실행.
+- [x] 문서와 진행 기록이 현재 코드와 일치한다.
+
+## 테스트 계획
+- 정적 검사: typecheck, ESLint
+- 단위 테스트: 기존 stats/store 보정 Vitest
+- 데이터베이스/RLS 테스트: migration 파일에 정규화 테이블, RLS, JSON 이관 SQL 포함 확인
+- E2E 테스트: 원격 DB 쓰기 위험 때문에 기본적으로 미실행, 필요 시 승인 후 실행
+- 빌드: Next.js production build
+
+## 위험과 되돌리기
+- 위험: 운영 DB에 migration 적용 전 배포하면 앱이 신규 테이블을 찾지 못해 저장 실패가 표시될 수 있다.
+- 위험: 현재 RLS는 로그인 없는 기본 조직 공개 쓰기를 유지하므로 외부 공개 서비스 수준의 권한 분리는 아직 아니다.
+- 롤백 방법: 저장 어댑터를 `family_open_app_state` JSON 저장 경로로 되돌리고 신규 migration 적용 전이면 migration을 적용하지 않는다.
+
+## 검증 결과
+- 실행한 명령:
+  - `pnpm run typecheck`
+  - `.\node_modules\.bin\eslint.cmd .`
+  - `.\node_modules\.bin\vitest.cmd run`
+  - `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`
+  - `pnpm run build`
+- 결과:
+  - `20260626000200_normalized_family_schema.sql` migration 추가
+  - `organizations`, `teachers`, `classes`, `children`, `child_parents`, `attendance_sessions`, `attendance_records` 테이블 추가
+  - 기존 `family_open_app_state` JSON을 새 테이블로 이관하는 SQL 포함
+  - 신규 업무 테이블 RLS와 기본 조직 정책 추가
+  - 앱 저장 어댑터를 정규화 테이블 읽기/쓰기 방식으로 교체
+  - 저장 어댑터가 현재 store에 없는 반, 선생님, 아이 행을 정리하도록 보강
+  - E2E 원격 초기화 helper를 새 저장 어댑터 기준으로 갱신
+  - README, instruction, MVP 설계서, 진행 기록, DB 테스트 갱신
+  - typecheck 통과
+  - ESLint 통과
+  - Vitest 3 files, 10 tests 통과
+  - DB Vitest 1 file, 1 test 통과
+  - Next.js production build 통과
+- 남은 문제:
+  - 운영 Supabase에는 아직 새 migration을 적용하지 않았다.
+  - migration 적용 전 이 코드가 운영에 배포되면 신규 테이블이 없어 `저장 실패`가 표시될 수 있다.
+  - Playwright E2E는 `resetRemoteStore()`가 원격 Supabase 상태를 쓸 수 있어 미실행.
+  - 현재 RLS는 기본 조직 공개 읽기/쓰기이며, 공개 운영 전 Auth 또는 공유 코드 기반 권한 정책 결정이 필요하다.
+
+---
+
+# Goal Addendum
+
+## 작업
+- 한 문장으로 설명: 아이 목록 보호자 라벨을 더 간결하게 바꾸고, 출석 화면과 아이 관련 아바타에 성별별 색상을 적용한다.
+- 사용자에게 주는 가치: 아이 목록과 출석 체크 화면에서 아이를 더 빠르게 구분할 수 있고, 화면 정보가 덜 복잡해진다.
+
+## 범위
+### 포함
+- `/children` 아이 목록에서 `보호자` 접두어 제거
+- `/attendance` 출석 행에 아이 목록과 같은 아바타 추가
+- 아이 목록, 출석 화면, 아이 상세 모달의 사진 없는 아이 아바타 색상을 성별별로 구분
+- E2E/문서/진행 기록 갱신
+
+### 제외
+- 선생님 아바타 색상 변경
+- 실제 사진 업로드/저장 방식 변경
+- 성별 데이터 모델 변경 또는 migration 추가
+
+## 현재 상태
+- 관련 화면/경로: `/children`, `/attendance`, 아이 상세 모달
+- 관련 테이블/마이그레이션: `family_open_app_state` 단일 JSON 행, migration 변경 없음
+- 관련 테스트: Playwright 앱 흐름, Next.js typecheck/build
+
+## 가정과 결정 기록
+- [2026-06-26] 사진이 있는 아이는 사진을 그대로 우선 표시하고, 성별 색상은 사진이 없는 기본 아바타에만 적용한다.
+- [2026-06-26] 남자 아바타는 파란 계열, 여자 아바타는 분홍 계열, 미입력은 초록 계열로 표시한다.
+- [2026-06-26] 보호자 이름이 없을 때는 `미입력`으로 표시해 `보호자` 텍스트를 목록에서 완전히 제거한다.
+
+## 완료 조건
+- [x] 아이 목록에서 보호자 이름 앞 `보호자` 텍스트가 보이지 않는다.
+- [x] 출석 화면 아이 이름 앞에 아이 목록과 같은 형태의 아바타가 보인다.
+- [x] 사진 없는 아이 아바타가 성별에 따라 다른 색상으로 보인다.
+- [ ] 필요한 테스트가 갱신되고 통과한다. typecheck, ESLint, unit, DB, build는 통과했으나 원격 DB 쓰기 위험 때문에 E2E는 미실행.
+- [x] 문서와 진행 기록이 현재 코드와 일치한다.
+
+## 테스트 계획
+- 정적 검사: typecheck, ESLint
+- 단위 테스트: 해당 없음
+- 데이터베이스/RLS 테스트: migration 변경 없음 확인
+- E2E 테스트: 아이 추가 후 목록 보호자 이름, 출석 화면 아바타 확인
+- 빌드: Next.js production build
+
+## 위험과 되돌리기
+- 위험: 출석 행에 아바타가 추가되며 모바일에서 한 줄 공간이 줄어든다.
+- 롤백 방법: 공통 아이 아바타 컴포넌트 적용과 보호자 라벨 변경을 되돌린다.
+
+## 검증 결과
+- 실행한 명령:
+  - `pnpm run typecheck`
+  - `.\node_modules\.bin\eslint.cmd .`
+  - `.\node_modules\.bin\vitest.cmd run`
+  - `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`
+  - `pnpm run build`
+- 결과:
+  - 아이 목록 보호자 표시를 이름만 보이도록 변경
+  - 공통 `ChildAvatar` 컴포넌트 추가 및 성별별 기본 아바타 색상 적용
+  - 출석 화면 아이 행 앞 아바타 추가
+  - 아이 상세 모달 사진 미입력 상태에 성별별 아바타 색상 적용
+  - E2E 기대값과 설계/진행 문서 갱신
+  - typecheck 통과
+  - ESLint 통과
+  - Vitest 3 files, 10 tests 통과
+  - DB Vitest 1 file, 1 test 통과
+  - Next.js production build 통과
+- 남은 문제:
+  - Playwright E2E는 `resetRemoteStore()`로 원격 Supabase 상태를 쓸 수 있어 미실행
+  - 이 변경은 아직 운영 배포에 반영되지 않았으므로 재배포 필요
+
+---
+
+# Goal Addendum
+
+## 작업
 - 한 문장으로 설명: 등록 아이 목록 카드에서 보호자 정보를 실제 등록된 보호자 이름으로 보여주고 등록일 표시는 제거한다.
 - 사용자에게 주는 가치: 아이 목록에서 바로 보호자 이름을 확인할 수 있고 불필요한 등록일 정보로 화면이 복잡해지지 않는다.
 
@@ -250,7 +440,7 @@
 ## 가정과 결정 기록
 - [2026-06-26] 등록일은 목록 카드에서만 숨긴다. 상세 모달에는 기존 입력값과 저장 로직을 유지해 기존 데이터 호환성을 지킨다.
 - [2026-06-26] 보호자가 여러 명이면 등록된 이름을 쉼표로 이어서 표시한다.
-- [2026-06-26] 보호자 이름이 하나도 없으면 `보호자 미입력`으로 표시한다.
+- [2026-06-26] 보호자 이름이 하나도 없으면 `미입력`으로 표시한다.
 
 ## 완료 조건
 - [x] 아이 목록 카드에서 보호자 수가 아니라 등록된 보호자 이름이 보인다.
@@ -278,7 +468,7 @@
   - `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`
   - `pnpm run build`
 - 결과:
-  - 아이 목록 카드 보호자 표시를 `보호자 {이름들}` 또는 `보호자 미입력`으로 변경
+  - 아이 목록 카드 보호자 표시를 `{이름들}` 또는 `미입력`으로 변경
   - 아이 목록 카드에서 등록일 표시 제거
   - E2E 기대값과 설계/진행 문서 갱신
   - typecheck 통과

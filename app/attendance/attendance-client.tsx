@@ -2,6 +2,7 @@
 
 import { Check, Info } from "lucide-react";
 import { useMemo, useState } from "react";
+import { ChildAvatar } from "@/components/domain/child-avatar";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
 import { ChildDetailModal } from "@/components/domain/child-detail-modal";
 import { SaveStatus } from "@/components/domain/save-status";
@@ -172,17 +173,20 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
                 return (
                   <article className="rounded-[12px] border-2 border-cloud-gray p-3" key={child.id}>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-lg font-extrabold text-almost-black">{child.name}</h3>
-                          <button
-                            aria-label={`${child.name} 상세정보`}
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-[12px] border-2 border-cloud-gray text-sky-blue-text"
-                            onClick={() => setSelectedChild(child)}
-                            type="button"
-                          >
-                            <Info aria-hidden="true" className="h-4 w-4" />
-                          </button>
+                      <div className="flex min-w-0 items-center gap-3">
+                        <ChildAvatar gender={child.gender} name={child.name} photoDataUrl={child.photoDataUrl} />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h3 className="truncate text-lg font-extrabold text-almost-black">{child.name}</h3>
+                            <button
+                              aria-label={`${child.name} 상세정보`}
+                              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border-2 border-cloud-gray text-sky-blue-text"
+                              onClick={() => setSelectedChild(child)}
+                              type="button"
+                            >
+                              <Info aria-hidden="true" className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2">

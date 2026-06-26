@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createDefaultFamilyOpenStore } from "@/lib/family/default-store";
 import { isValidBirthMonthDay, parseBirthDateParts } from "@/lib/family/stats";
+import { LEGACY_LOCAL_STORE_KEY } from "@/lib/family/store-persistence";
 import { loadFamilyOpenStoreFromSupabase, saveFamilyOpenStoreToSupabase } from "@/lib/family/supabase-store";
 import type {
   AttendanceStatus,
@@ -88,6 +89,14 @@ function normalizeMonthDay(month: number, day: number) {
   };
 }
 
+function removeLegacyLocalStore() {
+  try {
+    window.localStorage.removeItem(LEGACY_LOCAL_STORE_KEY);
+  } catch {
+    // Storage access can be blocked; Supabase remains the source of truth.
+  }
+}
+
 export function useFamilyOpenStore() {
   const [store, setStore] = useState<FamilyOpenStore>(() => createDefaultFamilyOpenStore());
   const [saveState, setSaveState] = useState<SaveState>("loading");
@@ -97,6 +106,7 @@ export function useFamilyOpenStore() {
     let isCancelled = false;
 
     async function loadStore() {
+      removeLegacyLocalStore();
       setSaveState("loading");
 
       const result = await loadFamilyOpenStoreFromSupabase();

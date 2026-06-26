@@ -2,7 +2,8 @@
 
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { Camera, Plus, Trash2, X } from "lucide-react";
+import { Plus, Trash2, X } from "lucide-react";
+import { ChildAvatar } from "@/components/domain/child-avatar";
 import { PressableButton } from "@/components/ui/pressable-button";
 import type { ChildGender, FamilyChild, FamilyClass, ParentRelation } from "@/lib/family/types";
 
@@ -228,14 +229,7 @@ export function ChildDetailModal({
           <label className="block sm:col-span-2">
             <span className="text-sm font-extrabold text-charcoal">사진</span>
             <div className="mt-2 flex items-center gap-3">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-cloud-gray bg-duo-green-light">
-                {photoDataUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img alt="" className="h-full w-full object-cover" src={photoDataUrl} />
-                ) : (
-                  <Camera aria-hidden="true" className="h-6 w-6 text-duo-green-dark" />
-                )}
-              </div>
+              <ChildAvatar gender={gender} name={name} photoDataUrl={photoDataUrl} size="lg" />
               <input
                 accept="image/*"
                 className="min-h-12 w-full rounded-[12px] border-2 border-cloud-gray px-3 py-2 text-base font-bold text-almost-black"

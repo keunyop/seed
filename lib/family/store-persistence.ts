@@ -1,6 +1,8 @@
 import { createDefaultFamilyOpenStore } from "@/lib/family/default-store";
 import type { FamilyOpenStore } from "@/lib/family/types";
 
+export const LEGACY_LOCAL_STORE_KEY = "seed-family-open-store-v1";
+
 export function normalizeFamilyOpenStore(value: unknown): FamilyOpenStore {
   const defaults = createDefaultFamilyOpenStore();
   const parsed = value as Partial<FamilyOpenStore> | null;
