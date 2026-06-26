@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createDefaultFamilyOpenStore } from "@/lib/family/default-store";
 import {
   formatChildBirthDate,
+  formatParentRelation,
   formatTeacherBirthDate,
   getChildRecord,
   getClassLabel,
@@ -13,6 +14,7 @@ import {
   isValidBirthMonthDay,
   parseBirthDateParts,
 } from "@/lib/family/stats";
+import { normalizeFamilyOpenStore } from "@/lib/family/store-persistence";
 
 describe("family open stats", () => {
   it("validates real birth month and day combinations", () => {
@@ -57,6 +59,43 @@ describe("family open stats", () => {
     );
     expect(formatChildBirthDate(store.children[0])).toBe("2020년 6월 12일");
     expect(formatTeacherBirthDate(store.teachers[0])).toBe("5월 10일");
+  });
+
+  it("ignores inactive children when calculating monthly qt summary", () => {
+    const store = createDefaultFamilyOpenStore();
+    store.children[0] = { ...store.children[0], isActive: false };
+    store.attendanceByDate["2026-06-28"] = {
+      sessionDate: "2026-06-28",
+      note: "",
+      savedAt: "2026-06-25T00:00:00.000Z",
+      records: {
+        "child-harin": { status: "present", qtCompleted: true },
+      },
+    };
+
+    const summary = getDashboardSummary(store, "2026-06-28", 6);
+    const qtDetails = getMonthlyQtDetails(store, "2026-06-28", 6);
+
+    expect(summary.monthlyQtParticipants).toBe(0);
+    expect(summary.monthlyQtCompletions).toBe(0);
+    expect(qtDetails).toEqual([]);
+  });
+
+  it("normalizes parent relation and formats its label", () => {
+    const store = normalizeFamilyOpenStore({
+      ...createDefaultFamilyOpenStore(),
+      children: [
+        {
+          ...createDefaultFamilyOpenStore().children[0],
+          parents: [{ id: "parent-1", name: "보호자", phone: "010-0000-0000" }],
+        },
+      ],
+    });
+
+    expect(store.children[0].parents?.[0].relation).toBe("other");
+    expect(formatParentRelation("father")).toBe("아빠");
+    expect(formatParentRelation("mother")).toBe("엄마");
+    expect(formatParentRelation("other")).toBe("기타");
   });
 
   it("keeps new attendance records unselected by default", () => {

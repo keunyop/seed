@@ -22,6 +22,18 @@ export function normalizeFamilyOpenStore(value: unknown): FamilyOpenStore {
       ...item,
       teacherId: item.teacherId ?? defaults.classes[index]?.teacherId,
     })),
+    children: (parsed.children ?? defaults.children).map((child) => ({
+      ...child,
+      parents: Array.isArray(child.parents)
+        ? child.parents.map((parent) => ({
+            ...parent,
+            relation:
+              parent.relation === "father" || parent.relation === "mother" || parent.relation === "other"
+                ? parent.relation
+                : "other",
+          }))
+        : [],
+    })),
     attendanceByDate: Object.fromEntries(
       Object.entries(parsed.attendanceByDate ?? {}).map(([date, session]) => [
         date,

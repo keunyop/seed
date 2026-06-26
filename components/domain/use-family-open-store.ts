@@ -4,12 +4,20 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createDefaultFamilyOpenStore } from "@/lib/family/default-store";
 import { isValidBirthMonthDay, parseBirthDateParts } from "@/lib/family/stats";
 import { loadFamilyOpenStoreFromSupabase, saveFamilyOpenStoreToSupabase } from "@/lib/family/supabase-store";
-import type { AttendanceStatus, ChildGender, FamilyChild, FamilyOpenStore, ParentContact } from "@/lib/family/types";
+import type {
+  AttendanceStatus,
+  ChildGender,
+  FamilyChild,
+  FamilyOpenStore,
+  ParentContact,
+  ParentRelation,
+} from "@/lib/family/types";
 
 type SaveState = "idle" | "loading" | "saved" | "error";
 
 type ParentInput = {
   id?: string;
+  relation?: ParentRelation;
   name: string;
   phone: string;
 };
@@ -166,6 +174,7 @@ export function useFamilyOpenStore() {
       const parents: ParentContact[] = (input.parents ?? [])
         .map((parent) => ({
           id: createId("parent"),
+          relation: parent.relation ?? "other",
           name: parent.name.trim(),
           phone: parent.phone.trim(),
         }))
@@ -421,6 +430,7 @@ export function useFamilyOpenStore() {
       const parents: ParentContact[] = (input.parents ?? [])
         .map((parent) => ({
           id: parent.id ?? createId("parent"),
+          relation: parent.relation ?? "other",
           name: parent.name.trim(),
           phone: parent.phone.trim(),
         }))

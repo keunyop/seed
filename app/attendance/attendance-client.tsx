@@ -24,6 +24,8 @@ type AttendanceDraft = {
   isDirty: boolean;
 };
 
+const ALL_CLASSES_VALUE = "all";
+
 function getLocalIsoDate() {
   const date = new Date();
   const offset = date.getTimezoneOffset() * 60_000;
@@ -33,10 +35,12 @@ function getLocalIsoDate() {
 export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
   const { store, saveState, isReady, saveAttendanceSession, updateChild, deleteChild } = useFamilyOpenStore();
   const [sessionDate, setSessionDate] = useState(() => getNearestWeekdayDate(getLocalIsoDate(), 0));
-  const [classId, setClassId] = useState(initialClassId ?? store.classes[0]?.id ?? "");
+  const [classId, setClassId] = useState(initialClassId ?? ALL_CLASSES_VALUE);
   const [selectedChild, setSelectedChild] = useState<FamilyChild | null>(null);
 
-  const selectedClassId = store.classes.some((item) => item.id === classId) ? classId : store.classes[0]?.id ?? "";
+  const selectedClassValue =
+    classId === ALL_CLASSES_VALUE || store.classes.some((item) => item.id === classId) ? classId : ALL_CLASSES_VALUE;
+  const selectedClassId = selectedClassValue === ALL_CLASSES_VALUE ? undefined : selectedClassValue;
   const children = useMemo(() => getActiveChildren(store, selectedClassId), [selectedClassId, store]);
   const session = getSession(store, sessionDate);
   const sessionKey = `${sessionDate}:${session.savedAt}`;
@@ -130,8 +134,9 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
               <select
                 className="mt-2 min-h-12 w-full rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
                 onChange={(event) => setClassId(event.target.value)}
-                value={selectedClassId}
+                value={selectedClassValue}
               >
+                <option value={ALL_CLASSES_VALUE}>전체</option>
                 {store.classes.map((item) => (
                   <option key={item.id} value={item.id}>
                     {getClassLabel(store, item.id)}

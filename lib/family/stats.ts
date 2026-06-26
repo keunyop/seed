@@ -4,6 +4,7 @@ import type {
   DashboardSummary,
   FamilyOpenStore,
   MonthlyQtDetail,
+  ParentRelation,
   WeeklyAttendanceDetail,
 } from "@/lib/family/types";
 
@@ -99,6 +100,18 @@ export function formatTeacherBirthDate(teacher: { birthDate?: string; birthMonth
   return "생일 미입력";
 }
 
+export function formatParentRelation(relation?: ParentRelation) {
+  if (relation === "father") {
+    return "아빠";
+  }
+
+  if (relation === "mother") {
+    return "엄마";
+  }
+
+  return "기타";
+}
+
 export function getActiveChildren(store: FamilyOpenStore, classId?: string) {
   return store.children.filter((child) => child.isActive && (!classId || child.classId === classId));
 }
@@ -185,6 +198,7 @@ export function getMonthlyQtDetails(store: FamilyOpenStore, sessionDate: string,
 
 export function getDashboardSummary(store: FamilyOpenStore, sessionDate: string, month: number): DashboardSummary {
   const activeChildren = getActiveChildren(store);
+  const activeChildrenById = new Set(activeChildren.map((child) => child.id));
   const session = getSession(store, sessionDate);
   const monthPrefix = `${sessionDate.slice(0, 4)}-${String(month).padStart(2, "0")}`;
   const qtParticipantIds = new Set<string>();
@@ -196,7 +210,7 @@ export function getDashboardSummary(store: FamilyOpenStore, sessionDate: string,
     }
 
     for (const [childId, record] of Object.entries(item.records)) {
-      if (record.qtCompleted) {
+      if (record.qtCompleted && activeChildrenById.has(childId)) {
         qtParticipantIds.add(childId);
         monthlyQtCompletions += 1;
       }

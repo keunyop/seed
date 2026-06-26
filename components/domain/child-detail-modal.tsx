@@ -4,14 +4,14 @@ import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Camera, Plus, Trash2, X } from "lucide-react";
 import { PressableButton } from "@/components/ui/pressable-button";
-import type { ChildGender, FamilyChild, FamilyClass } from "@/lib/family/types";
+import type { ChildGender, FamilyChild, FamilyClass, ParentRelation } from "@/lib/family/types";
 
 export type ChildDetailFormInput = {
   name: string;
   photoDataUrl?: string;
   gender: ChildGender;
   birthDate?: string;
-  parents: Array<{ id?: string; name: string; phone: string }>;
+  parents: Array<{ id?: string; relation: ParentRelation; name: string; phone: string }>;
   address?: string;
   email?: string;
   registeredAt?: string;
@@ -21,6 +21,7 @@ export type ChildDetailFormInput = {
 
 type ParentForm = {
   id: string;
+  relation: ParentRelation;
   name: string;
   phone: string;
 };
@@ -51,7 +52,7 @@ function createDraftId(prefix: string) {
 }
 
 function createEmptyParent(): ParentForm {
-  return { id: createDraftId("parent"), name: "", phone: "" };
+  return { id: createDraftId("parent"), relation: "father", name: "", phone: "" };
 }
 
 function getInitialBirthDate(child?: FamilyChild) {
@@ -87,7 +88,12 @@ export function ChildDetailModal({
   const [birthDate, setBirthDate] = useState(getInitialBirthDate(child));
   const [parents, setParents] = useState<ParentForm[]>(() =>
     child?.parents?.length
-      ? child.parents.map((parent) => ({ id: parent.id, name: parent.name, phone: parent.phone }))
+      ? child.parents.map((parent) => ({
+          id: parent.id,
+          relation: parent.relation ?? "other",
+          name: parent.name,
+          phone: parent.phone,
+        }))
       : [createEmptyParent()],
   );
   const [address, setAddress] = useState(child?.address ?? "");
@@ -143,8 +149,16 @@ export function ChildDetailModal({
     reader.readAsDataURL(file);
   }
 
-  function updateParentField(parentId: string, field: "name" | "phone", value: string) {
-    setParents((current) => current.map((parent) => (parent.id === parentId ? { ...parent, [field]: value } : parent)));
+  function updateParentField(parentId: string, field: "relation" | "name" | "phone", value: string) {
+    setParents((current) =>
+      current.map((parent) => {
+        if (parent.id !== parentId) {
+          return parent;
+        }
+
+        return field === "relation" ? { ...parent, relation: value as ParentRelation } : { ...parent, [field]: value };
+      }),
+    );
   }
 
   function removeParent(parentId: string) {
@@ -293,7 +307,21 @@ export function ChildDetailModal({
             <legend className="px-1 text-sm font-extrabold text-charcoal">부모님</legend>
             <div className="grid gap-3">
               {parents.map((parent, index) => (
-                <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]" key={parent.id}>
+                <div className="grid gap-2 sm:grid-cols-[128px_1fr_1fr_auto]" key={parent.id}>
+                  <label className="block">
+                    <span className="text-sm font-extrabold text-charcoal">관계</span>
+                    <select
+                      className="mt-2 min-h-12 w-full rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
+                      onChange={(event) =>
+                        updateParentField(parent.id, "relation", event.target.value as ParentRelation)
+                      }
+                      value={parent.relation}
+                    >
+                      <option value="father">아빠</option>
+                      <option value="mother">엄마</option>
+                      <option value="other">기타</option>
+                    </select>
+                  </label>
                   <label className="block">
                     <span className="text-sm font-extrabold text-charcoal">성함</span>
                     <input

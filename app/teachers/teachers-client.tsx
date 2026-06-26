@@ -312,6 +312,7 @@ export function TeachersClient() {
   const { store, saveState, isReady, addTeacher, updateTeacher, deleteTeacher } = useFamilyOpenStore();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState<FamilyTeacher | null>(null);
+  const activeTeachers = store.teachers.filter((teacher) => teacher.isActive);
 
   return (
     <main className="min-h-dvh bg-white pb-[calc(88px+var(--safe-bottom))]">
@@ -332,12 +333,10 @@ export function TeachersClient() {
         <section className="mt-4 rounded-[12px] border-2 border-cloud-gray p-4 sm:p-6">
           <h2 className="flex items-center gap-2 text-xl font-extrabold text-almost-black">
             <UserRoundCog aria-hidden="true" className="h-5 w-5 text-sky-blue-text" />
-            등록된 선생님
+            등록된 선생님 {activeTeachers.length}명
           </h2>
           <div className="mt-4 grid gap-3">
-            {store.teachers
-              .filter((teacher) => teacher.isActive)
-              .map((teacher) => {
+            {activeTeachers.map((teacher) => {
                 const teacherClass = getTeacherClass(store, teacher);
                 return (
                   <article className="rounded-[12px] border-2 border-cloud-gray p-4" key={teacher.id}>

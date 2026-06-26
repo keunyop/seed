@@ -152,7 +152,7 @@ type FamilyOpenStore = {
     birthYear?: number
     birthMonth: number
     birthDay: number
-    parents?: Array<{ id: string; name: string; phone: string }>
+    parents?: Array<{ id: string; relation: "father" | "mother" | "other"; name: string; phone: string }>
     address?: string
     email?: string
     registeredAt?: string

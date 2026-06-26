@@ -19,8 +19,11 @@ export type FamilyClass = {
 
 export type ChildGender = "male" | "female" | "unspecified";
 
+export type ParentRelation = "father" | "mother" | "other";
+
 export type ParentContact = {
   id: string;
+  relation: ParentRelation;
   name: string;
   phone: string;
 };
