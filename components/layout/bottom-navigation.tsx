@@ -1,14 +1,16 @@
-import { BarChart3, CalendarCheck2, Home, UsersRound } from "lucide-react";
+import { BarChart3, CalendarCheck2, Home, Settings, UserRoundCog, UsersRound } from "lucide-react";
 
 const items = [
   { id: "home", label: "홈", href: "/dashboard", icon: Home },
   { id: "attendance", label: "출석", href: "/attendance", icon: CalendarCheck2 },
   { id: "children", label: "아이들", href: "/children", icon: UsersRound },
+  { id: "teachers", label: "선생님", href: "/teachers", icon: UserRoundCog },
   { id: "reports", label: "통계", href: "/reports", icon: BarChart3 },
+  { id: "settings", label: "설정", href: "/settings", icon: Settings },
 ];
 
 type BottomNavigationProps = {
-  active: "home" | "attendance" | "children" | "reports";
+  active: "home" | "attendance" | "children" | "teachers" | "reports" | "settings";
 };
 
 export function BottomNavigation({ active }: BottomNavigationProps) {
@@ -17,7 +19,7 @@ export function BottomNavigation({ active }: BottomNavigationProps) {
       aria-label="주요 메뉴"
       className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-cloud-gray bg-white px-2 pb-[calc(8px+var(--safe-bottom))] pt-2"
     >
-      <div className="mx-auto grid max-w-[520px] grid-cols-4 gap-1">
+      <div className="mx-auto grid max-w-[640px] grid-cols-6 gap-1">
         {items.map((item) => (
           <a
             aria-current={item.id === active ? "page" : undefined}

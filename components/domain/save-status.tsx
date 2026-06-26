@@ -2,10 +2,9 @@ import { CheckCircle2, Loader2, TriangleAlert } from "lucide-react";
 
 type SaveStatusProps = {
   state: "idle" | "loading" | "saved" | "error";
-  lastSavedAt?: string;
 };
 
-export function SaveStatus({ state, lastSavedAt }: SaveStatusProps) {
+export function SaveStatus({ state }: SaveStatusProps) {
   if (state === "loading") {
     return (
       <span className="inline-flex items-center gap-1 text-sm font-bold text-graphite">
@@ -27,8 +26,7 @@ export function SaveStatus({ state, lastSavedAt }: SaveStatusProps) {
   return (
     <span className="inline-flex items-center gap-1 text-sm font-bold text-duo-green-dark">
       <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
-      {lastSavedAt ? `${lastSavedAt} 저장됨` : "저장됨"}
+      저장됨
     </span>
   );
 }
-
