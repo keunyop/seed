@@ -7,7 +7,7 @@
 - 로그인 없는 패밀리 오픈 MVP로 범위가 변경되었습니다.
 - Next.js App Router, TypeScript strict, Tailwind CSS v4, pnpm 기반입니다.
 - 데이터는 Supabase `family_open_app_state` 단일 JSON 행에 저장합니다.
-- 브라우저 `localStorage`는 원격 저장 실패 시 임시 백업으로만 사용합니다.
+- 앱 상태는 브라우저 `localStorage`에 저장하지 않고 Supabase DB를 기준으로 읽고 씁니다.
 - 아이 상세 정보와 보호자 연락처, 선택한 사진 Data URL도 같은 Supabase JSON 상태에 저장합니다.
 - Supabase Auth, 정규화된 업무 테이블, 조직/반 단위 RLS는 공개 배포 전 다시 설계합니다.
 

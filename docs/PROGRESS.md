@@ -292,3 +292,31 @@
 ### 다음 단계
 - 사용량 제한이 풀리면 `.\node_modules\.bin\playwright.cmd test`를 네트워크 권한으로 실행해 모달 삭제 confirm과 새로고침 유지 E2E를 완료한다.
 - E2E가 통과하면 `goal.md`의 남은 검증 조건을 체크하고 삭제한다.
+
+## 2026-06-26 Supabase DB 기준 저장 정리
+
+### 확인
+- 운영 배포 `https://seed-six-pearl.vercel.app`의 새 브라우저 세션에서 Supabase `family_open_app_state` 읽기 요청은 200으로 성공했다.
+- 이전 `저장 실패`의 직접 원인은 Vercel `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` 오입력으로 확인됐고, 이후 읽기 요청 기준으로는 환경변수 반영이 정상화됐다.
+- 운영 저장 버튼 클릭 검증은 공유 Supabase 상태를 변경할 수 있어 실행하지 않았다.
+
+### 완료
+- 앱 초기 로딩에서 localStorage 선반영을 제거하고 Supabase `family_open_app_state` 읽기 결과만 상태 기준으로 사용하도록 변경했다.
+- 앱 저장 시 localStorage 백업 쓰기를 제거하고 Supabase 저장 요청만 수행하도록 변경했다.
+- Supabase 브라우저 클라이언트에서 Auth 세션 저장, 자동 갱신, URL 세션 감지를 비활성화했다.
+- localStorage 읽기/쓰기 헬퍼와 저장 키 상수를 제거했다.
+- E2E에 앱 상태 localStorage 키가 다시 생성되지 않는 회귀 확인을 추가했다.
+- `instruction.md`, `docs/MVP_DESIGN_SPEC.md`, `README.md`를 Supabase DB 기준 저장 방식으로 갱신했다.
+
+### 검증
+- `pnpm run typecheck`: 통과
+- `.\node_modules\.bin\eslint.cmd .`: 통과
+- `.\node_modules\.bin\vitest.cmd run`: 3 files, 8 tests 통과
+- `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`: 1 file, 1 test 통과
+- `pnpm run build`: 통과
+- `pnpm run lint`, `pnpm run test`, `pnpm run test:db`는 PowerShell에서 `pnpm.exe` 접근 거부가 발생해 동일 바이너리를 직접 실행했다.
+
+### 다음 단계
+- 이 변경은 로컬 저장소에만 적용되어 있으므로 운영 반영에는 재배포가 필요하다.
+- 배포 후 새 브라우저 또는 기존 브라우저에서 새로고침하여 localStorage 없이 Supabase 읽기/저장이 되는지 확인해야 한다.
+- 운영 저장 버튼 검증은 실제 DB 상태를 바꾸므로, 필요하면 제품 책임자 승인 후 짧은 테스트 데이터를 만들어 확인한다.

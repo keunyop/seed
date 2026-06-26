@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createDefaultFamilyOpenStore } from "@/lib/family/default-store";
 import { isValidBirthMonthDay, parseBirthDateParts } from "@/lib/family/stats";
 import { loadFamilyOpenStoreFromSupabase, saveFamilyOpenStoreToSupabase } from "@/lib/family/supabase-store";
-import { readLocalFamilyOpenStore, writeLocalFamilyOpenStore } from "@/lib/family/store-persistence";
 import type { AttendanceStatus, ChildGender, FamilyChild, FamilyOpenStore, ParentContact } from "@/lib/family/types";
 
 type SaveState = "idle" | "loading" | "saved" | "error";
@@ -90,22 +89,14 @@ export function useFamilyOpenStore() {
     let isCancelled = false;
 
     async function loadStore() {
-      const localStore = readLocalFamilyOpenStore();
-      setStore(localStore);
       setSaveState("loading");
 
-      const result = await loadFamilyOpenStoreFromSupabase(localStore);
+      const result = await loadFamilyOpenStoreFromSupabase();
       if (isCancelled) {
         return;
       }
 
       setStore(result.store);
-      try {
-        writeLocalFamilyOpenStore(result.store);
-      } catch {
-        // Remote storage is the source of truth after Supabase is enabled.
-      }
-
       setSaveState(result.ok ? "saved" : "error");
       setIsReady(true);
     }
@@ -119,12 +110,6 @@ export function useFamilyOpenStore() {
 
   const saveStore = useCallback((nextStore: FamilyOpenStore) => {
     setSaveState("loading");
-    try {
-      writeLocalFamilyOpenStore(nextStore);
-    } catch {
-      // Local backup can fail independently of the remote write.
-    }
-
     void saveFamilyOpenStoreToSupabase(nextStore).then((result) => {
       setSaveState(result.ok ? "saved" : "error");
     });

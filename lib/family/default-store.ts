@@ -1,7 +1,5 @@
 import type { FamilyOpenStore } from "@/lib/family/types";
 
-export const FAMILY_OPEN_STORAGE_KEY = "seed-family-open-store-v1";
-
 export function createDefaultFamilyOpenStore(): FamilyOpenStore {
   return {
     version: 1,

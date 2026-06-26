@@ -62,6 +62,11 @@ async function expectNoHorizontalOverflow(page: import("@playwright/test").Page)
   expect(hasHorizontalOverflow).toBe(false);
 }
 
+async function expectNoAppStateLocalStorage(page: import("@playwright/test").Page) {
+  const storedState = await page.evaluate(() => window.localStorage.getItem("seed-family-open-store-v1"));
+  expect(storedState).toBeNull();
+}
+
 async function waitForSaved(page: import("@playwright/test").Page) {
   await expect(page.getByText("저장됨").first()).toBeVisible();
 }
@@ -109,6 +114,7 @@ test("dashboard opens without login and fits the mobile viewport", async ({ page
   await expect(page.locator("a[href^='/attendance?classId=']")).toHaveCount(2);
   await expect(page.locator("nav")).toBeVisible();
   await expect(page.getByRole("heading", { name: "반 등록" })).toHaveCount(0);
+  await expectNoAppStateLocalStorage(page);
   await expectNoHorizontalOverflow(page);
 });
 
@@ -136,6 +142,7 @@ test("Supabase-backed attendance flow supports teacher and class management", as
 
   await page.goto("/teachers");
   await waitForSaved(page);
+  await expectNoAppStateLocalStorage(page);
 
   await page.getByRole("button", { name: "선생님 등록" }).click();
   await fillTeacherDialog(page, { name: teacherName, month: "1", day: "10", phone: "604-000-0000" });

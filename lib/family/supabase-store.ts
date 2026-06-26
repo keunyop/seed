@@ -18,21 +18,27 @@ function createFamilyOpenSupabaseClient() {
     return null;
   }
 
-  return createBrowserClient<Database>(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
+  return createBrowserClient<Database>(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
 }
 
 export function isFamilyOpenSupabaseConfigured() {
   return createFamilyOpenSupabaseClient() !== null;
 }
 
-export async function loadFamilyOpenStoreFromSupabase(fallbackStore?: FamilyOpenStore): Promise<RemoteStoreResult> {
-  const fallback = fallbackStore ?? createDefaultFamilyOpenStore();
+export async function loadFamilyOpenStoreFromSupabase(): Promise<RemoteStoreResult> {
+  const defaultStore = createDefaultFamilyOpenStore();
   const supabase = createFamilyOpenSupabaseClient();
 
   if (!supabase) {
     return {
       ok: false,
-      store: fallback,
+      store: defaultStore,
       message: "Supabase 환경변수가 설정되지 않았습니다.",
     };
   }
@@ -46,14 +52,16 @@ export async function loadFamilyOpenStoreFromSupabase(fallbackStore?: FamilyOpen
   if (error) {
     return {
       ok: false,
-      store: fallback,
+      store: defaultStore,
       message: error.message,
     };
   }
 
   if (!data) {
-    const saveResult = await saveFamilyOpenStoreToSupabase(fallback);
-    return saveResult.ok ? { ok: true, store: fallback } : { ok: false, store: fallback, message: saveResult.message };
+    const saveResult = await saveFamilyOpenStoreToSupabase(defaultStore);
+    return saveResult.ok
+      ? { ok: true, store: defaultStore }
+      : { ok: false, store: defaultStore, message: saveResult.message };
   }
 
   return { ok: true, store: normalizeFamilyOpenStore(data.state) };

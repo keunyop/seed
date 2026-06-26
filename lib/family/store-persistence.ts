@@ -1,4 +1,4 @@
-import { createDefaultFamilyOpenStore, FAMILY_OPEN_STORAGE_KEY } from "@/lib/family/default-store";
+import { createDefaultFamilyOpenStore } from "@/lib/family/default-store";
 import type { FamilyOpenStore } from "@/lib/family/types";
 
 export function normalizeFamilyOpenStore(value: unknown): FamilyOpenStore {
@@ -32,25 +32,4 @@ export function normalizeFamilyOpenStore(value: unknown): FamilyOpenStore {
       ]),
     ),
   };
-}
-
-export function readLocalFamilyOpenStore(): FamilyOpenStore {
-  if (typeof window === "undefined") {
-    return createDefaultFamilyOpenStore();
-  }
-
-  const raw = window.localStorage.getItem(FAMILY_OPEN_STORAGE_KEY);
-  if (!raw) {
-    return createDefaultFamilyOpenStore();
-  }
-
-  try {
-    return normalizeFamilyOpenStore(JSON.parse(raw));
-  } catch {
-    return createDefaultFamilyOpenStore();
-  }
-}
-
-export function writeLocalFamilyOpenStore(store: FamilyOpenStore) {
-  window.localStorage.setItem(FAMILY_OPEN_STORAGE_KEY, JSON.stringify(store));
 }

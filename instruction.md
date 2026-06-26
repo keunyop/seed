@@ -143,7 +143,7 @@
 - 아이 추가
 - 반별 주간 출석 및 큐티 체크
 - 간단한 주간 메모
-- 브라우저 로컬 저장과 새로고침 후 유지
+- Supabase 원격 저장과 새로고침 후 유지
 - 이번 주 출석 인원 요약
 - 이번 달 큐티 참여 아동 수와 완료 건수
 - 이번 달 생일자 목록
@@ -177,7 +177,7 @@
 - 언어: **TypeScript**, `strict: true`
 - 패키지 관리자: **pnpm**
 - 스타일: **Tailwind CSS v4**와 **shadcn/ui**
-- 저장: MVP는 **브라우저 localStorage**
+- 저장: MVP는 **Supabase Postgres 단일 JSON 행**
 - 향후 중앙 저장: **Supabase Postgres + Supabase Auth/RLS 또는 공유 코드 정책**
 - 배포: **Vercel**
 - 입력 검증: **Zod**
@@ -191,7 +191,7 @@
 ### 5.2 아키텍처 원칙
 
 - Server Component를 기본으로 하고 실제 상호작용이 필요한 최소 영역만 Client Component로 만든다.
-- 이번 MVP의 데이터 읽기와 쓰기는 브라우저 로컬 상태와 `localStorage`로 처리한다.
+- 이번 MVP의 데이터 읽기와 쓰기는 Supabase `family_open_app_state` 단일 JSON 행으로 처리한다.
 - 중앙 DB를 도입하면 데이터 읽기와 비즈니스 규칙은 `server-only` Data Access Layer를 통해 수행한다.
 - 중앙 DB 쓰기는 Server Action 또는 필요한 Route Handler에서 수행하되, **모든 진입점에서 인증·권한 또는 공유 코드·입력값을 다시 검증**한다.
 - Proxy/미들웨어는 편의용 라우팅 보호일 뿐 최종 권한 경계로 사용하지 않는다.
@@ -245,7 +245,7 @@ docs/
 
 ## 6. 데이터베이스와 보안 규칙
 
-이번 MVP는 로그인 없이 패밀리 오픈으로 사용하므로 업무 데이터는 브라우저 `localStorage`에만 저장한다. 중앙 DB와 RLS는 이번 범위가 아니며, 여러 기기 공유가 필요해질 때 별도 `goal.md`로 다시 설계한다.
+이번 MVP는 로그인 없이 패밀리 오픈으로 사용하므로 업무 데이터는 Supabase `family_open_app_state` 단일 JSON 행에 저장한다. 여러 기기에서 같은 데이터를 공유하기 위한 임시 구조이며, 공개 운영 전에는 Auth/RLS 또는 공유 코드 정책을 별도 `goal.md`로 다시 설계한다.
 
 ### 6.1 멀티테넌트 준비
 
@@ -409,7 +409,7 @@ MVP 기본 아이 정보는 이름, 생일 월/일, 선택적 출생연도, 반 
 6. 최소한의 결과만 반환
 7. 필요한 경로 재검증 또는 UI 상태 갱신
 
-이번 localStorage MVP에서는 서버 mutation이 없다. Server Action을 도입하면 UI에서만 호출된다고 가정하지 않는다. 직접 POST 요청이 가능한 공개 진입점처럼 다룬다.
+이번 Supabase 단일 JSON MVP에서는 별도 Server Action mutation이 없다. Server Action을 도입하면 UI에서만 호출된다고 가정하지 않는다. 직접 POST 요청이 가능한 공개 진입점처럼 다룬다.
 
 ### 9.4 오류와 상태
 
