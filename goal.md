@@ -222,3 +222,70 @@
   - 운영 DB 테스트 데이터 삭제/정리는 실제 데이터 변경이므로 사용자 승인 전 미실행
   - Playwright E2E는 `resetRemoteStore()`로 원격 Supabase 상태를 쓸 수 있어 미실행
   - 이 변경은 아직 운영 배포에 반영되지 않았으므로 재배포 필요
+
+---
+
+# Goal Addendum
+
+## 작업
+- 한 문장으로 설명: 등록 아이 목록 카드에서 보호자 정보를 실제 등록된 보호자 이름으로 보여주고 등록일 표시는 제거한다.
+- 사용자에게 주는 가치: 아이 목록에서 바로 보호자 이름을 확인할 수 있고 불필요한 등록일 정보로 화면이 복잡해지지 않는다.
+
+## 범위
+### 포함
+- `/children` 아이 목록 카드의 보호자 표시 변경
+- 보호자 이름이 없을 때의 빈 상태 문구 처리
+- E2E/문서/진행 기록 갱신
+
+### 제외
+- 아이 상세 모달의 등록일 입력 제거
+- 데이터 모델 또는 Supabase migration 변경
+- 보호자 연락처 표시 추가
+
+## 현재 상태
+- 관련 화면/경로: `/children`
+- 관련 테이블/마이그레이션: `family_open_app_state` 단일 JSON 행, migration 변경 없음
+- 관련 테스트: Playwright 앱 흐름, Next.js typecheck/build
+
+## 가정과 결정 기록
+- [2026-06-26] 등록일은 목록 카드에서만 숨긴다. 상세 모달에는 기존 입력값과 저장 로직을 유지해 기존 데이터 호환성을 지킨다.
+- [2026-06-26] 보호자가 여러 명이면 등록된 이름을 쉼표로 이어서 표시한다.
+- [2026-06-26] 보호자 이름이 하나도 없으면 `보호자 미입력`으로 표시한다.
+
+## 완료 조건
+- [x] 아이 목록 카드에서 보호자 수가 아니라 등록된 보호자 이름이 보인다.
+- [x] 아이 목록 카드에서 등록일이 보이지 않는다.
+- [x] 보호자 이름이 없는 아이도 깨지지 않고 빈 상태 문구가 보인다.
+- [ ] 필요한 테스트가 갱신되고 통과한다. typecheck, ESLint, unit, DB, build는 통과했으나 원격 DB 쓰기 위험 때문에 E2E는 미실행.
+- [x] 문서와 진행 기록이 현재 코드와 일치한다.
+
+## 테스트 계획
+- 정적 검사: typecheck, ESLint
+- 단위 테스트: 해당 없음
+- 데이터베이스/RLS 테스트: migration 변경 없음 확인
+- E2E 테스트: 아이 추가 후 목록 카드에 보호자 이름 표시 및 등록일 미표시 확인
+- 빌드: Next.js production build
+
+## 위험과 되돌리기
+- 위험: 보호자 이름이 길면 모바일 카드에서 줄이 길어질 수 있다.
+- 롤백 방법: `/children` 카드의 보호자/등록일 표시 변경을 되돌린다.
+
+## 검증 결과
+- 실행한 명령:
+  - `pnpm run typecheck`
+  - `.\node_modules\.bin\eslint.cmd .`
+  - `.\node_modules\.bin\vitest.cmd run`
+  - `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`
+  - `pnpm run build`
+- 결과:
+  - 아이 목록 카드 보호자 표시를 `보호자 {이름들}` 또는 `보호자 미입력`으로 변경
+  - 아이 목록 카드에서 등록일 표시 제거
+  - E2E 기대값과 설계/진행 문서 갱신
+  - typecheck 통과
+  - ESLint 통과
+  - Vitest 3 files, 10 tests 통과
+  - DB Vitest 1 file, 1 test 통과
+  - Next.js production build 통과
+- 남은 문제:
+  - Playwright E2E는 `resetRemoteStore()`로 원격 Supabase 상태를 쓸 수 있어 미실행
+  - 이 변경은 아직 운영 배포에 반영되지 않았으므로 재배포 필요

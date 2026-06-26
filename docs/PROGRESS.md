@@ -348,3 +348,22 @@
 ### 다음 단계
 - 운영 DB에 남은 비활성 테스트 데이터 삭제/초기화가 필요하면 제품 책임자 승인 후 별도 작업으로 수행한다.
 - E2E는 원격 Supabase 상태를 초기화하는 테스트라 운영 데이터 변경 위험 때문에 이번 작업에서 실행하지 않았다..
+
+## 2026-06-26 아이 목록 보호자 표시 정리
+
+### 완료
+- `/children` 등록 아이 목록 카드에서 보호자 수와 등록일 대신 등록된 보호자 이름을 표시하도록 변경했다.
+- 보호자 이름이 없으면 `보호자 미입력`으로 표시한다.
+- 아이 상세 모달의 등록일 입력과 기존 저장 데이터는 유지해 데이터 호환성을 보존했다.
+- E2E 기대값과 `docs/MVP_DESIGN_SPEC.md`의 아이 목록 표시 설명을 갱신했다.
+
+### 검증
+- `pnpm run typecheck`: 통과
+- `.\node_modules\.bin\eslint.cmd .`: 통과
+- `.\node_modules\.bin\vitest.cmd run`: 3 files, 10 tests 통과
+- `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`: 1 file, 1 test 통과
+- `pnpm run build`: 통과
+- Playwright E2E는 원격 Supabase 상태를 초기화하는 테스트라 운영 데이터 변경 위험 때문에 실행하지 않았다.
+
+### 다음 단계
+- 운영 반영에는 재배포가 필요하다.

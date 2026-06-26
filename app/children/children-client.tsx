@@ -22,6 +22,18 @@ function getGenderLabel(gender?: ChildGender) {
   return "미입력";
 }
 
+function getParentNamesLabel(child: FamilyChild) {
+  const parentNames = (child.parents ?? [])
+    .map((parent) => parent.name.trim())
+    .filter((name) => name.length > 0);
+
+  if (parentNames.length === 0) {
+    return "보호자 미입력";
+  }
+
+  return `보호자 ${parentNames.join(", ")}`;
+}
+
 export function ChildrenClient() {
   const { store, saveState, isReady, addChild, updateChild, deleteChild } = useFamilyOpenStore();
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -126,9 +138,7 @@ export function ChildrenClient() {
                       <p className="mt-1 text-sm font-bold text-graphite">
                         {childClass?.name ?? "반 미지정"} · {formatChildBirthDate(child)} · {getGenderLabel(child.gender)}
                       </p>
-                      <p className="mt-1 text-sm font-medium text-graphite">
-                        보호자 {child.parents?.length ?? 0}명 · 등록일 {child.registeredAt ?? "미입력"}
-                      </p>
+                      <p className="mt-1 text-sm font-medium text-graphite">{getParentNamesLabel(child)}</p>
                       {child.notes ? <p className="mt-2 text-sm font-bold text-charcoal">{child.notes}</p> : null}
                     </div>
                   </button>

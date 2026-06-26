@@ -229,9 +229,12 @@ test("Supabase-backed attendance flow supports teacher and class management", as
   await addChildDialog.getByLabel("반").selectOption({ label: editedClassName });
   await addChildDialog.locator("button[type='submit']").click();
   await expect(page.getByRole("heading", { name: childName })).toBeVisible();
+  const childCard = page.locator("button").filter({ hasText: childName }).first();
+  await expect(childCard.getByText("보호자 테스트 보호자")).toBeVisible();
+  await expect(childCard.getByText("등록일")).toHaveCount(0);
   await waitForSaved(page);
 
-  await page.locator("button").filter({ hasText: childName }).first().click();
+  await childCard.click();
   const editChildDialog = page.getByRole("dialog");
   await editChildDialog.locator("textarea").fill("수정된 특이사항");
   await editChildDialog.locator("button[type='submit']").click();
