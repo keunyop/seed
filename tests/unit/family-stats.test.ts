@@ -163,7 +163,7 @@ describe("family open stats", () => {
     expect(children.map((child) => child.name)).toEqual(["하준", "가은", "나래"]);
   });
 
-  it("sorts attendance roster children by name within the selected class", () => {
+  it("sorts attendance roster children by class for all classes and by name for a selected class", () => {
     const store = createDefaultFamilyOpenStore();
     const children = [
       { ...store.children[1], name: "하준", classId: "class-kindergarten" },
@@ -177,9 +177,9 @@ describe("family open stats", () => {
       "하준",
     ]);
     expect(getAttendanceRosterChildren(attendanceStore).map((child) => child.name)).toEqual([
-      "가은",
       "나래",
       "하준",
+      "가은",
     ]);
   });
 });

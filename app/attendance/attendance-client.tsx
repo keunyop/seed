@@ -138,20 +138,20 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
             <SaveStatus state={saveState} />
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <label className="block">
+          <div className="mt-5 grid min-w-0 gap-3 sm:grid-cols-2">
+            <label className="block min-w-0">
               <span className="text-sm font-extrabold text-charcoal">날짜</span>
               <input
-                className="mt-2 min-h-12 w-full rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
+                className="mt-2 min-h-12 w-full max-w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
                 onChange={(event) => setSessionDate(event.target.value)}
                 type="date"
                 value={sessionDate}
               />
             </label>
-            <label className="block">
+            <label className="block min-w-0">
               <span className="text-sm font-extrabold text-charcoal">반</span>
               <select
-                className="mt-2 min-h-12 w-full rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
+                className="mt-2 min-h-12 w-full max-w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
                 onChange={(event) => setClassId(event.target.value)}
                 value={selectedClassValue}
               >

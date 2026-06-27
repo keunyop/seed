@@ -129,7 +129,7 @@ export function getActiveChildren(store: FamilyOpenStore, classId?: string) {
 }
 
 export function getAttendanceRosterChildren(store: FamilyOpenStore, classId?: string) {
-  return sortChildrenForRoster(getActiveChildren(store, classId), store.classes, "name");
+  return sortChildrenForRoster(getActiveChildren(store, classId), store.classes, classId ? "name" : "class");
 }
 
 export function sortChildrenForRoster(children: FamilyChild[], classes: FamilyClass[], sortMode: ChildrenSortMode) {

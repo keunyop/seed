@@ -1,5 +1,24 @@
 # Progress
 
+## 2026-06-27 출석 전체 정렬과 모바일 날짜 입력 폭 보정
+
+### 완료
+- `/attendance`에서 반이 `전체`일 때 출석 명단을 반 목록 순서로 묶고, 각 반 안에서는 가나다순으로 정렬하도록 변경했다.
+- 특정 반을 선택했을 때는 기존처럼 해당 반 안에서 가나다순으로 표시한다.
+- `/attendance`, `/reports`의 날짜 입력과 같은 필터 컨트롤에 `min-width: 0`과 `max-width: 100%`를 적용해 모바일 카드 영역을 벗어나지 않도록 보정했다.
+- MVP 설계 문서에 전체 반 출석 정렬 기준과 모바일 날짜 입력 폭 기준을 반영했다.
+
+### 검증
+- `pnpm run typecheck`: 통과
+- `.\node_modules\.bin\eslint.cmd .`: 통과
+- `.\node_modules\.bin\vitest.cmd run`: 3 files, 14 tests 통과
+- `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`: 1 file, 1 test 통과
+- `pnpm run build`: 통과
+- production 서버를 임시로 띄워 390×844 모바일 viewport에서 `/attendance`, `/reports` 확인:
+  - `/attendance`: `documentScrollWidth = 390`, `innerWidth = 390`, 날짜 input `34..356`, 카드 `16..374`, overflow 없음.
+  - `/reports`: `documentScrollWidth = 390`, `innerWidth = 390`, 날짜 input `34..356`, 카드 `16..374`, overflow 없음.
+- Playwright E2E 전체 스위트는 원격 Supabase 상태 초기화 위험 때문에 실행하지 않았다.
+
 ## 2026-06-27 출석 체크 모바일 UI와 성능 보강
 
 ### 완료

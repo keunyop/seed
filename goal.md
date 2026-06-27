@@ -855,3 +855,68 @@
   - 로컬 확인 환경에서는 원격 데이터가 로드되지 않아 실제 아이 토글 DOM 색상은 화면에서 직접 확인하지 못했다.
   - Playwright E2E는 원격 Supabase 상태 초기화 위험 때문에 실행하지 않았다.
   - 이 변경은 아직 운영 배포에 반영되지 않았으므로 재배포가 필요하다.
+
+# Goal Addendum
+
+## 작업
+- 한 문장으로 설명: 출석 체크 전체 보기 정렬을 반별 다음 가나다순으로 바꾸고, 모바일 출석/통계 화면의 날짜 입력 폭 넘침을 보정한다.
+- 사용자에게 주는 가치: 교사가 전체 명단을 볼 때 반 단위로 빠르게 훑을 수 있고, 모바일 카드 안에서 날짜 입력이 화면을 밀어내지 않는다.
+
+## 범위
+### 포함
+- `/attendance`에서 반 필터가 전체일 때 반 순서 후 이름 가나다순 정렬
+- `/attendance`에서 특정 반 선택 시 기존처럼 이름 가나다순 정렬 유지
+- `/attendance`, `/reports`의 날짜 입력과 같은 필터 컨트롤이 모바일 카드 폭을 넘지 않도록 보정
+- 관련 단위 테스트, MVP 설계 문서, 진행 기록 갱신
+
+### 제외
+- DB schema 또는 운영 데이터 변경
+- 출석 저장 로직 변경
+- 원격 Supabase 상태를 초기화하는 E2E 실행
+
+## 현재 상태
+- 관련 화면/경로: `/attendance`, `/reports`
+- 관련 테이블/마이그레이션: 변경 없음
+- 관련 테스트: family stats unit, DB migration test, typecheck, ESLint, build, 모바일 viewport 확인
+
+## 가정과 결정 기록
+- [2026-06-27] 전체 반 보기는 현재 `classes` 배열 순서를 반 순서로 보고, 각 반 안에서 이름 가나다순으로 정렬한다.
+- [2026-06-27] 특정 반 선택 시에는 반 정보가 이미 고정되어 있으므로 이름 가나다순을 유지한다.
+- [2026-06-27] 모바일 날짜 입력 overflow는 레이아웃 폭 보정 문제로 보고 입력 요소와 그리드 자식에 `min-width: 0`/`max-width: 100%`를 적용한다.
+
+## 완료 조건
+- [x] 전체 반 출석 명단이 반별 정렬 후 가나다순으로 표시된다.
+- [x] 특정 반 출석 명단은 가나다순으로 표시된다.
+- [x] 모바일 출석 화면 날짜 입력이 카드 영역을 벗어나지 않는다.
+- [x] 모바일 통계 화면 날짜 입력이 카드 영역을 벗어나지 않는다.
+- [x] 관련 테스트와 build가 통과한다.
+- [x] 진행 결과가 `docs/PROGRESS.md`에 기록된다.
+
+## 테스트 계획
+- 정적 검사: `pnpm run typecheck`, ESLint
+- 단위 테스트: `.\node_modules\.bin\vitest.cmd run`
+- DB 테스트: `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`
+- 빌드: `pnpm run build`
+- 화면 확인: production 서버에서 390x844 viewport로 `/attendance`, `/reports` 날짜 입력과 가로 스크롤 여부 확인
+
+## 위험과 되돌리기
+- 위험: 반 순서가 DB의 `classes` 정렬 순서에 의존한다.
+- 롤백 방법: `getAttendanceRosterChildren` 정렬 모드 변경과 날짜 입력 class 변경을 되돌린다.
+
+## 검증 결과
+- 실행한 명령:
+  - `pnpm run typecheck`
+  - `.\node_modules\.bin\eslint.cmd .`
+  - `.\node_modules\.bin\vitest.cmd run`
+  - `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`
+  - `pnpm run build`
+  - production 서버 임시 실행 후 Playwright 390×844 모바일 viewport에서 `/attendance`, `/reports` DOM 폭 확인
+- 결과:
+  - `getAttendanceRosterChildren`이 전체 반에서는 `class` 정렬, 특정 반에서는 `name` 정렬을 사용하도록 변경했다.
+  - 관련 단위 테스트를 전체 반 반별 정렬 기대값으로 갱신했고 Vitest 3 files, 14 tests가 통과했다.
+  - `/attendance` 모바일 확인: `documentScrollWidth = 390`, `innerWidth = 390`, 날짜 input `34..356`, 카드 `16..374`, overflow 없음.
+  - `/reports` 모바일 확인: `documentScrollWidth = 390`, `innerWidth = 390`, 날짜 input `34..356`, 카드 `16..374`, overflow 없음.
+  - typecheck, ESLint, DB Vitest, Next.js production build 통과.
+- 남은 문제:
+  - Playwright E2E 전체 스위트는 원격 Supabase 상태 초기화 위험 때문에 실행하지 않았다.
+  - 이 변경은 아직 운영 배포에 반영되지 않았으므로 재배포가 필요하다.

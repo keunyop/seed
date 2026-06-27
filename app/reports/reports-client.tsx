@@ -140,20 +140,20 @@ export function ReportsClient() {
       <div className="mx-auto w-full max-w-[920px] px-4 py-5 sm:px-6">
         <header className="rounded-[12px] border-2 border-cloud-gray p-4 sm:p-6">
           <h1 className="font-heading-ko text-3xl font-bold text-almost-black">통계</h1>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <label className="block">
+          <div className="mt-5 grid min-w-0 gap-3 sm:grid-cols-2">
+            <label className="block min-w-0">
               <span className="text-sm font-extrabold text-charcoal">주간 출석 기준일</span>
               <input
-                className="mt-2 min-h-12 w-full rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
+                className="mt-2 min-h-12 w-full max-w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
                 onChange={(event) => setSessionDate(event.target.value)}
                 type="date"
                 value={sessionDate}
               />
             </label>
-            <label className="block">
+            <label className="block min-w-0">
               <span className="text-sm font-extrabold text-charcoal">생일/큐티 월</span>
               <select
-                className="mt-2 min-h-12 w-full rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
+                className="mt-2 min-h-12 w-full max-w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
                 onChange={(event) => setMonth(Number(event.target.value))}
                 value={month}
               >
