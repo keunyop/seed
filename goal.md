@@ -265,6 +265,236 @@
 # Goal Addendum
 
 ## 작업
+- 한 문장으로 설명: 생년월일 미상 7명을 원격 Supabase에 등록하고 아이들 목록에 가나다/반별 정렬을 추가한다.
+- 사용자에게 주는 가치: 전체 명단이 출석부에 들어가고, 교사가 아이 목록을 이름순 또는 반별로 빠르게 확인할 수 있다.
+
+## 범위
+### 포함
+- 보류된 7명 원격 등록 재시도 및 검증
+- `/children` 아이 목록에 정렬 컨트롤 추가
+- 기본 정렬을 가나다로 설정
+- 반별 정렬은 반 순서 다음 이름순으로 정렬
+- 정렬 로직 테스트와 문서/진행 기록 갱신
+
+### 제외
+- 출석 기록 생성
+- DB schema 추가 변경
+- 원격 데이터 삭제 또는 초기화
+- 아이 목록 외 화면의 정렬 정책 변경
+
+## 현재 상태
+- 관련 화면/경로: `/children`
+- 관련 테이블/마이그레이션: `children`, `child_parents`, `classes`, `20260627000100_nullable_child_birth.sql`
+- 관련 테스트: family stats unit, DB migration test, 원격 Supabase 등록/조회
+
+## 가정과 결정 기록
+- [2026-06-27] 사용자가 원격 Supabase에서 nullable birth migration SQL을 적용했다고 알려주었으므로 7명 등록을 재시도한다.
+- [2026-06-27] `가나다` 정렬은 아이 이름 기준 한국어 locale 오름차순이다.
+- [2026-06-27] `반별` 정렬은 현재 반 목록 순서대로 정렬하고 같은 반 안에서는 이름 가나다순으로 정렬한다. 반 미지정은 마지막에 둔다.
+
+## 완료 조건
+- [x] 보류된 7명이 원격 Supabase에 등록된다.
+- [x] 등록 후 원격 DB에서 7명과 보호자 5행을 확인한다.
+- [x] 아이들 목록 기본 정렬이 가나다순이다.
+- [x] 아이들 목록에서 반별 정렬을 선택할 수 있다.
+- [x] 정렬 로직 테스트가 추가되고 통과한다.
+- [x] 문서와 진행 기록이 현재 상태와 일치한다.
+
+## 테스트 계획
+- 정적 검사: `pnpm run typecheck`, ESLint
+- 단위 테스트: 아이 목록 정렬 helper, nullable 생일 기존 테스트
+- 데이터베이스/RLS 테스트: 원격 Supabase 등록/조회, migration test
+- E2E 테스트: 운영 데이터 변경 작업이므로 자동 E2E는 실행하지 않고 DB 조회와 단위 테스트로 검증
+- 수동 확인 화면 크기: CSS는 모바일 2버튼 segmented control로 구성
+
+## 위험과 되돌리기
+- 위험: 실제 개인정보가 원격 DB에 쓰인다.
+- 위험: 반별 정렬은 현재 반 배열 순서에 의존한다.
+- 롤백 방법: 이번 등록 child id 7개를 삭제하면 `child_parents`는 cascade로 삭제된다. UI 정렬 변경은 `/children`과 정렬 helper 변경을 되돌린다.
+
+## 검증 결과
+- 실행한 명령:
+  - `node tmp\register_missing_birth_children.mjs`
+  - `node tmp\register_missing_birth_children.mjs --execute`
+  - `node tmp\register_missing_birth_children.mjs --verify`
+  - `pnpm run typecheck`
+  - `.\node_modules\.bin\eslint.cmd .`
+  - `.\node_modules\.bin\vitest.cmd run`
+  - `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`
+  - `pnpm run build`
+- 결과:
+  - dry-run: 7명, 보호자 5행 확인
+  - execute: 원격 Supabase에 7명 upsert, 보호자 5행 insert 성공
+  - verify: 원격 DB에서 아이 7명, 보호자 5행, null 생일 7명 확인
+  - `/children` 목록에 가나다/반별 정렬 컨트롤 추가
+  - 기본 정렬은 가나다순으로 설정
+  - 반별 정렬 helper와 단위 테스트 추가
+  - typecheck 통과
+  - ESLint 통과
+  - Vitest 3 files, 12 tests 통과
+  - DB Vitest 1 file, 1 test 통과
+  - Next.js production build 통과
+  - 개인정보 원본이 포함된 임시 등록 스크립트는 검증 후 삭제함
+- 남은 문제:
+  - 운영 반영에는 재배포가 필요함
+
+---
+
+# Goal Addendum
+
+## 작업
+- 한 문장으로 설명: 사용자가 제공한 2학년부터 6학년까지의 아이 목록을 Supabase 정규화 테이블에 등록한다.
+- 사용자에게 주는 가치: 실제 초등부 아이 명단이 앱의 아이들/출석 화면에서 바로 사용할 수 있게 된다.
+
+## 범위
+### 포함
+- 제공된 표의 아이 이름, 성별, 생년월일, 보호자 이름/전화번호, 주소, 이메일, 등록일, 반, 특이사항 등록
+- 등록일이 `YYYY.MM` 또는 `YYYY.MM.`처럼 월까지만 있는 경우 해당 월 1일로 보정
+- 현재 원격 DB의 기존 반/아이 데이터를 보존하면서 새 아이를 병합
+- 등록 후 원격 DB 조회로 등록 건수와 주요 필드 검증
+- `docs/PROGRESS.md`에 진행 결과 기록
+
+### 제외
+- 출석 기록 임의 생성
+- 선생님 또는 반 구조의 대규모 변경
+- Auth/RLS 권한 구조 변경
+- 모호하거나 유효하지 않은 날짜를 제품 책임자 확인 없이 임의 날짜로 확정
+
+## 현재 상태
+- 관련 화면/경로: `/children`, `/attendance`
+- 관련 테이블/마이그레이션: `children`, `child_parents`, `classes`
+- 관련 테스트: 데이터 파싱 검증 스크립트, 원격 Supabase 읽기/쓰기 확인, typecheck/lint 가능 범위
+
+## 가정과 결정 기록
+- [2026-06-27] 등록일이 월까지만 있으면 사용자의 지시에 따라 해당 월 1일로 저장한다.
+- [2026-06-27] 빈 등록일, 빈 생년월일, 유효하지 않은 생년월일/등록일은 임의 보정하지 않고 확인 대상으로 남긴다.
+- [2026-06-27] 같은 이름이라도 생년월일/보호자가 다르면 별도 아이로 등록할 수 있다.
+
+## 완료 조건
+- [x] 제공된 명단 중 검증 가능한 아이가 원격 Supabase `children`/`child_parents`에 등록된다.
+- [x] 반 값이 2학년~6학년 class_id에 연결된다.
+- [x] 등록일 월 단위 입력은 1일로 보정되어 저장된다.
+- [x] 모호하거나 유효하지 않은 값은 임의로 왜곡하지 않고 사용자에게 보고된다.
+- [x] 등록 후 원격 DB 조회로 아이 수와 보호자 수를 확인한다.
+- [x] 진행 결과가 `docs/PROGRESS.md`에 기록된다.
+
+## 테스트 계획
+- 정적 검사: 등록 스크립트 TypeScript/JavaScript 실행 전 dry-run 검증
+- 단위 테스트: 해당 없음
+- 데이터베이스/RLS 테스트: 원격 Supabase select/upsert/delete 없이 필요한 행 upsert 확인
+- E2E 테스트: 운영 데이터 변경 작업이므로 자동 E2E는 실행하지 않고 DB 조회로 검증
+- 수동 확인 화면 크기: UI 변경 없음
+
+## 위험과 되돌리기
+- 위험: 실제 개인정보가 원격 DB에 쓰인다.
+- 위험: 기존 저장 어댑터의 전체 저장 방식은 잘못 사용하면 기존 데이터를 삭제할 수 있으므로 직접 테이블 upsert 방식으로 등록한다.
+- 롤백 방법: 이번 작업에서 생성한 child id 목록을 기준으로 `children` 행을 삭제하면 `child_parents`는 cascade로 삭제된다.
+
+## 검증 결과
+- 실행한 명령:
+  - `node tmp\register_children_roster.mjs`
+  - `node tmp\register_children_roster.mjs --inspect`
+  - `node tmp\register_children_roster.mjs --execute`
+  - `node tmp\register_children_roster.mjs --verify`
+  - `pnpm run typecheck`
+  - `.\node_modules\.bin\eslint.cmd .`
+- 결과:
+  - dry-run: 총 52명 중 생년월일이 유효한 45명 등록 가능, 생년월일 문제 7명 보류 확인
+  - inspect: 원격 Supabase에 1학년~6학년 반 6개, 기존 아이 11명 확인. 이번 2학년~6학년 명단과 자연키 충돌 없음
+  - execute: 기존 반 사용, 새 아이 45명 등록, 보호자 77행 등록, 생년월일 문제 7명 보류
+  - verify: 원격 DB에서 등록 대상 45명과 보호자 77행 확인, 월 단위 등록일 39/39건이 해당 월 1일로 저장됨
+  - typecheck 통과
+  - ESLint 통과
+  - 개인정보 원본이 포함된 임시 등록 스크립트는 검증 후 삭제함
+- 남은 문제:
+  - 생년월일이 비었거나 `00.00`인 7명은 DB 필수 생일 월/일을 임의로 만들지 않기 위해 보류함: 노찬아, 박로빈, 이정우, 송리유, 이한나, 김도완, 김라온
+  - 정채원의 등록일 `2011/2002`는 유효한 날짜로 해석하지 않고 비워 저장함
+  - 등록일이 생년월일보다 빠른 6건은 제공값 그대로 저장했으며, 필요하면 별도 정정 필요
+
+---
+
+# Goal Addendum
+
+## 작업
+- 한 문장으로 설명: 아이 생일을 nullable로 바꾸고 생년월일 미상 7명을 원격 Supabase에 등록한다.
+- 사용자에게 주는 가치: 생년월일을 아직 모르는 아이도 출석부에 먼저 포함해 반별 출석 체크에 사용할 수 있다.
+
+## 범위
+### 포함
+- `children.birth_month`, `children.birth_day` nullable migration 추가
+- 앱 타입, 저장 어댑터, 생일 표시/월간 생일 통계가 생일 미입력 아이를 처리하도록 수정
+- 생년월일 미상 아이 등록 시 생일 관련 DB 필드는 `null`로 저장
+- 보류된 7명 등록 및 원격 DB 조회 검증
+- 문서와 진행 기록 갱신
+
+### 제외
+- 선생님 생일 nullable 변경
+- 생일 추정값 입력
+- Auth/RLS 권한 구조 변경
+- 운영 DB schema migration을 service role 없이 강제로 적용
+
+## 현재 상태
+- 관련 화면/경로: `/children`, `/attendance`, `/reports`, 아이 상세 모달
+- 관련 테이블/마이그레이션: `children.birth_month`, `children.birth_day`
+- 관련 테스트: family stats unit, DB migration test, 원격 Supabase 등록/조회
+
+## 가정과 결정 기록
+- [2026-06-27] 사용자가 생일 nullable을 명시 승인했으므로 생년월일 미상 아이는 `birth_date`, `birth_year`, `birth_month`, `birth_day`를 모두 `null`로 저장한다.
+- [2026-06-27] 생일 미상 아이는 월간 생일자 통계에서 제외한다.
+- [2026-06-27] 생일 미상 아이의 화면 표시는 `생년월일 미입력`으로 한다.
+- [2026-06-27] 현재 `.env.local`에는 publishable key만 있어 원격 schema migration은 직접 적용하지 못할 수 있다. 적용이 막히면 SQL migration 파일과 필요한 수동 적용 절차를 남긴다.
+
+## 완료 조건
+- [x] 생일 미상 아이를 표현할 수 있도록 앱 타입과 저장 로직이 nullable 생일을 지원한다.
+- [x] 새 migration이 `children.birth_month`/`birth_day`의 NOT NULL 제약을 제거한다.
+- [x] 생일 미상 아이는 월간 생일 통계에서 제외된다.
+- [x] 보류된 7명이 원격 Supabase에 등록된다.
+- [x] 등록 후 원격 DB에서 7명과 보호자 정보를 확인한다.
+- [x] 필요한 테스트와 문서가 갱신되고 통과한다.
+
+## 테스트 계획
+- 정적 검사: `pnpm run typecheck`, ESLint
+- 단위 테스트: `formatChildBirthDate`, `getMonthlyBirthdays` nullable 생일 처리
+- 데이터베이스/RLS 테스트: migration 파일에 nullable 변경 포함 확인
+- E2E 테스트: 운영 데이터 변경 작업이므로 자동 E2E는 실행하지 않고 DB 조회로 검증
+- 수동 확인 화면 크기: UI 구조 변경은 최소화
+
+## 위험과 되돌리기
+- 위험: 원격 DB migration 적용 전에는 null 생일 insert가 NOT NULL 제약으로 실패할 수 있다.
+- 위험: 생일 미상 아이는 생일 통계에 표시되지 않는다.
+- 롤백 방법: 등록된 7명 child id를 삭제하고, migration 적용 전이면 적용하지 않는다. 적용 후 롤백하려면 null 생일 데이터를 정리한 뒤 NOT NULL 제약을 되돌려야 한다.
+
+## 검증 결과
+- 실행한 명령:
+  - `node tmp\register_missing_birth_children.mjs`
+  - `node tmp\register_missing_birth_children.mjs --execute`
+  - `node tmp\register_missing_birth_children.mjs --verify`
+  - `pnpm run typecheck`
+  - `.\node_modules\.bin\eslint.cmd .`
+  - `.\node_modules\.bin\vitest.cmd run`
+  - `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`
+  - `pnpm run build`
+- 결과:
+  - dry-run: 남은 7명, 보호자 5행 등록 대상 확인
+  - 원격 등록 시도 실패: `null value in column "birth_month" of relation "children" violates not-null constraint`
+  - 사용자 원격 alter table 적용 후 재실행하여 보류 7명 등록 성공
+  - 원격 DB 조회에서 아이 7명, 보호자 5행, null 생일 7명 확인
+  - `20260627000100_nullable_child_birth.sql` migration 추가
+  - 앱 타입/저장/표시/통계가 nullable 아이 생일을 지원하도록 변경
+  - typecheck 통과
+  - ESLint 통과
+  - Vitest 3 files, 11 tests 통과
+  - DB Vitest 1 file, 1 test 통과
+  - Next.js production build 통과
+  - 개인정보 원본이 포함된 임시 등록 스크립트는 검증 후 삭제함
+- 남은 문제:
+  - 운영 반영에는 재배포가 필요함
+
+---
+
+# Goal Addendum
+
+## 작업
 - 한 문장으로 설명: 단일 JSON 저장 구조를 정규화된 Supabase 업무 테이블 구조로 개편한다.
 - 사용자에게 주는 가치: 아이, 보호자, 반, 선생님, 출석 기록이 각각 테이블로 관리되어 검색·통계·이력·권한 분리의 기반이 생긴다.
 

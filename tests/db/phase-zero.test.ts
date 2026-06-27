@@ -11,6 +11,7 @@ describe("Supabase family open database", () => {
     );
     expect(migrations).toContain("20260626000100_family_open_app_state.sql");
     expect(migrations).toContain("20260626000200_normalized_family_schema.sql");
+    expect(migrations).toContain("20260627000100_nullable_child_birth.sql");
 
     const legacyMigration = readFileSync(
       join(process.cwd(), "supabase", "migrations", "20260626000100_family_open_app_state.sql"),
@@ -34,5 +35,12 @@ describe("Supabase family open database", () => {
     expect(normalizedMigration).toContain("jsonb_array_elements(coalesce(source.state->'children'");
     expect(normalizedMigration).toContain("alter table public.children enable row level security");
     expect(normalizedMigration).toContain("organization_id = '00000000-0000-0000-0000-000000000001'");
+
+    const nullableBirthMigration = readFileSync(
+      join(process.cwd(), "supabase", "migrations", "20260627000100_nullable_child_birth.sql"),
+      "utf8",
+    );
+    expect(nullableBirthMigration).toContain("alter column birth_month drop not null");
+    expect(nullableBirthMigration).toContain("alter column birth_day drop not null");
   });
 });

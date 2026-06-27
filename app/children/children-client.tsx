@@ -8,8 +8,9 @@ import { ChildDetailModal } from "@/components/domain/child-detail-modal";
 import { SaveStatus } from "@/components/domain/save-status";
 import { useFamilyOpenStore } from "@/components/domain/use-family-open-store";
 import { PressableButton } from "@/components/ui/pressable-button";
-import { formatChildBirthDate, getClassLabel } from "@/lib/family/stats";
-import type { FamilyChild, ChildGender } from "@/lib/family/types";
+import { formatChildBirthDate, getClassLabel, sortChildrenForRoster } from "@/lib/family/stats";
+import type { ChildrenSortMode } from "@/lib/family/stats";
+import type { ChildGender, FamilyChild } from "@/lib/family/types";
 
 function getGenderLabel(gender?: ChildGender) {
   if (gender === "male") {
@@ -41,16 +42,20 @@ export function ChildrenClient() {
   const [selectedChild, setSelectedChild] = useState<FamilyChild | null>(null);
   const [filterClassId, setFilterClassId] = useState("all");
   const [nameFilter, setNameFilter] = useState("");
+  const [sortMode, setSortMode] = useState<ChildrenSortMode>("name");
   const normalizedNameFilter = nameFilter.trim().toLocaleLowerCase("ko-KR");
-  const activeChildren = store.children.filter((child) => child.isActive);
+  const activeChildren = useMemo(() => store.children.filter((child) => child.isActive), [store.children]);
   const filteredChildren = useMemo(
-    () =>
-      activeChildren.filter((child) => {
+    () => {
+      const filtered = activeChildren.filter((child) => {
         const matchesClass = filterClassId === "all" || child.classId === filterClassId;
         const matchesName = !normalizedNameFilter || child.name.toLocaleLowerCase("ko-KR").includes(normalizedNameFilter);
         return matchesClass && matchesName;
-      }),
-    [activeChildren, filterClassId, normalizedNameFilter],
+      });
+
+      return sortChildrenForRoster(filtered, store.classes, sortMode);
+    },
+    [activeChildren, filterClassId, normalizedNameFilter, sortMode, store.classes],
   );
 
   return (
@@ -99,6 +104,30 @@ export function ChildrenClient() {
                 />
               </span>
             </label>
+          </div>
+          <div className="mt-3">
+            <span className="text-sm font-extrabold text-charcoal">정렬</span>
+            <div className="mt-2 grid grid-cols-2 gap-2 rounded-[12px] border-2 border-cloud-gray bg-[#f7f7f7] p-1">
+              {[
+                { id: "name", label: "가나다" },
+                { id: "class", label: "반별" },
+              ].map((item) => {
+                const isActive = sortMode === item.id;
+                return (
+                  <button
+                    aria-pressed={isActive}
+                    className={`min-h-11 rounded-[10px] px-3 text-base font-extrabold transition ${
+                      isActive ? "bg-white text-almost-black shadow-[0_2px_0_#e5e5e5]" : "text-graphite"
+                    }`}
+                    key={item.id}
+                    onClick={() => setSortMode(item.id as ChildrenSortMode)}
+                    type="button"
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </section>
 

@@ -65,7 +65,7 @@ function getInitialBirthDate(child?: FamilyChild) {
     return child.birthDate;
   }
 
-  if (child.birthYear) {
+  if (child.birthYear && child.birthMonth && child.birthDay) {
     return `${child.birthYear}-${String(child.birthMonth).padStart(2, "0")}-${String(child.birthDay).padStart(2, "0")}`;
   }
 

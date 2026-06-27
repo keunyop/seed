@@ -13,6 +13,7 @@ import {
   getWeeklyAttendanceDetails,
   isValidBirthMonthDay,
   parseBirthDateParts,
+  sortChildrenForRoster,
 } from "@/lib/family/stats";
 import { normalizeFamilyOpenStore } from "@/lib/family/store-persistence";
 
@@ -59,6 +60,23 @@ describe("family open stats", () => {
     );
     expect(formatChildBirthDate(store.children[0])).toBe("2020년 6월 12일");
     expect(formatTeacherBirthDate(store.teachers[0])).toBe("5월 10일");
+  });
+
+  it("excludes children without birthdays from birthday summaries", () => {
+    const store = createDefaultFamilyOpenStore();
+    store.children[0] = {
+      ...store.children[0],
+      birthDate: undefined,
+      birthYear: undefined,
+      birthMonth: undefined,
+      birthDay: undefined,
+    };
+
+    expect(formatChildBirthDate(store.children[0])).toBe("생년월일 미입력");
+    expect(getDashboardSummary(store, "2026-06-28", 6).monthlyBirthdays.map((child) => child.name)).toEqual(["유나"]);
+
+    store.children[0] = { ...store.children[0], birthYear: 2020 };
+    expect(formatChildBirthDate(store.children[0])).toBe("2020년 생일 미입력");
   });
 
   it("ignores inactive children when calculating monthly qt summary", () => {
@@ -112,5 +130,26 @@ describe("family open stats", () => {
 
     expect(getTeacherName(store, "teacher-minji")).toBe("김민지 선생님");
     expect(getClassLabel(store, "class-kindergarten")).toBe("유치부 믿음반 · 김민지 선생님");
+  });
+
+  it("sorts children by name by default or by class order", () => {
+    const store = createDefaultFamilyOpenStore();
+    const children = [
+      { ...store.children[1], name: "하준", classId: "class-elementary" },
+      { ...store.children[2], name: "가은", classId: "class-elementary" },
+      { ...store.children[0], name: "나래", classId: "class-kindergarten" },
+    ];
+
+    expect(sortChildrenForRoster(children, store.classes, "name").map((child) => child.name)).toEqual([
+      "가은",
+      "나래",
+      "하준",
+    ]);
+    expect(sortChildrenForRoster(children, store.classes, "class").map((child) => child.name)).toEqual([
+      "나래",
+      "가은",
+      "하준",
+    ]);
+    expect(children.map((child) => child.name)).toEqual(["하준", "가은", "나래"]);
   });
 });

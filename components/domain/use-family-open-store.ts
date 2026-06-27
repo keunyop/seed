@@ -89,6 +89,29 @@ function normalizeMonthDay(month: number, day: number) {
   };
 }
 
+function parseOptionalChildBirthDate(input?: { birthDate?: string; birthMonth?: number; birthDay?: number }) {
+  const birthDate = input?.birthDate?.trim() ?? "";
+  const parsedBirthDate = birthDate ? parseBirthDateParts(birthDate) : null;
+
+  if (birthDate && !parsedBirthDate) {
+    return { ok: false as const, message: "생년월일을 확인해 주세요." };
+  }
+
+  const birthMonth = parsedBirthDate?.month ?? input?.birthMonth;
+  const birthDay = parsedBirthDate?.day ?? input?.birthDay;
+  if ((birthMonth || birthDay) && !isValidBirthMonthDay(birthMonth ?? 0, birthDay ?? 0)) {
+    return { ok: false as const, message: "생년월일을 확인해 주세요." };
+  }
+
+  return {
+    ok: true as const,
+    birthDate: birthDate || undefined,
+    birthYear: parsedBirthDate?.year,
+    birthMonth,
+    birthDay,
+  };
+}
+
 function removeLegacyLocalStore() {
   try {
     window.localStorage.removeItem(LEGACY_LOCAL_STORE_KEY);
@@ -159,12 +182,9 @@ export function useFamilyOpenStore() {
         return { ok: false, message: "아이 이름을 입력해 주세요." };
       }
 
-      const parsedBirthDate = input.birthDate ? parseBirthDateParts(input.birthDate) : null;
-      const birthMonth = parsedBirthDate?.month ?? input.birthMonth ?? 0;
-      const birthDay = parsedBirthDate?.day ?? input.birthDay ?? 0;
-
-      if (!parsedBirthDate && !isValidBirthMonthDay(birthMonth, birthDay)) {
-        return { ok: false, message: "생년월일을 확인해 주세요." };
+      const birth = parseOptionalChildBirthDate(input);
+      if (!birth.ok) {
+        return { ok: false, message: birth.message };
       }
 
       if (input.classId && !store.classes.some((item) => item.id === input.classId)) {
@@ -196,10 +216,10 @@ export function useFamilyOpenStore() {
         classId: input.classId,
         photoDataUrl: normalizeOptionalText(input.photoDataUrl),
         gender: input.gender ?? "unspecified",
-        birthDate: input.birthDate || undefined,
-        birthYear: parsedBirthDate?.year,
-        birthMonth,
-        birthDay,
+        birthDate: birth.birthDate,
+        birthYear: birth.birthYear,
+        birthMonth: birth.birthMonth,
+        birthDay: birth.birthDay,
         parents,
         address: normalizeOptionalText(input.address),
         email,
@@ -415,12 +435,9 @@ export function useFamilyOpenStore() {
         return { ok: false, message: "아이 정보를 찾을 수 없습니다." };
       }
 
-      const parsedBirthDate = input.birthDate ? parseBirthDateParts(input.birthDate) : null;
-      const birthMonth = parsedBirthDate?.month ?? input.birthMonth ?? currentChild.birthMonth;
-      const birthDay = parsedBirthDate?.day ?? input.birthDay ?? currentChild.birthDay;
-
-      if (!parsedBirthDate && !isValidBirthMonthDay(birthMonth, birthDay)) {
-        return { ok: false, message: "생년월일을 확인해 주세요." };
+      const birth = parseOptionalChildBirthDate(input);
+      if (!birth.ok) {
+        return { ok: false, message: birth.message };
       }
 
       if (input.classId && !store.classes.some((item) => item.id === input.classId)) {
@@ -452,10 +469,10 @@ export function useFamilyOpenStore() {
         classId: input.classId,
         photoDataUrl: normalizeOptionalText(input.photoDataUrl),
         gender: input.gender ?? "unspecified",
-        birthDate: input.birthDate || undefined,
-        birthYear: parsedBirthDate?.year,
-        birthMonth,
-        birthDay,
+        birthDate: birth.birthDate,
+        birthYear: birth.birthYear,
+        birthMonth: birth.birthMonth,
+        birthDay: birth.birthDay,
         parents,
         address: normalizeOptionalText(input.address),
         email,

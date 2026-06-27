@@ -36,8 +36,8 @@ export type FamilyChild = {
   gender?: ChildGender;
   birthDate?: string;
   birthYear?: number;
-  birthMonth: number;
-  birthDay: number;
+  birthMonth?: number;
+  birthDay?: number;
   parents?: ParentContact[];
   address?: string;
   email?: string;

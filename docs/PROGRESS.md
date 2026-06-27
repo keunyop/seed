@@ -1,5 +1,112 @@
 # Progress
 
+## 2026-06-27 남은 7명 등록과 아이 목록 정렬
+
+### 완료
+- 사용자가 원격 Supabase에서 `children.birth_month`/`birth_day` NOT NULL 제약을 제거한 뒤, 보류된 7명을 다시 등록했다.
+  - 노찬아
+  - 박로빈
+  - 이정우
+  - 송리유
+  - 이한나
+  - 김도완
+  - 김라온
+- 원격 DB 조회로 7명 모두 `birth_month = null`, `birth_day = null` 상태로 저장된 것을 확인했다.
+- 보호자 정보 5행을 `child_parents`에 등록했다.
+- `/children` 아이 목록에 정렬 선택을 추가했다.
+  - 기본값: 가나다
+  - 선택값: 반별
+- 가나다 정렬은 이름순, 반별 정렬은 현재 반 목록 순서 후 이름순으로 동작한다.
+- 전체 개인정보 원본이 포함된 임시 등록 스크립트는 검증 후 삭제했다.
+
+### 검증
+- `node tmp\register_missing_birth_children.mjs`: dry-run 7명/보호자 5행 확인
+- `node tmp\register_missing_birth_children.mjs --execute`: 7명 upsert, 보호자 5행 insert 성공
+- `node tmp\register_missing_birth_children.mjs --verify`: 원격 DB에서 아이 7명, 보호자 5행, null 생일 7명 확인
+- `pnpm run typecheck`: 통과
+- `.\node_modules\.bin\eslint.cmd .`: 통과
+- `.\node_modules\.bin\vitest.cmd run`: 3 files, 12 tests 통과
+- `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`: 1 file, 1 test 통과
+- `pnpm run build`: 통과
+
+### 다음 단계
+- 운영 반영에는 재배포가 필요하다.
+
+## 2026-06-27 생년월일 미상 아이 등록 준비
+
+### 제품 결정
+- 생년월일을 모르는 아이도 등록할 수 있도록 아이 생일 월/일을 nullable로 변경한다.
+- 생일 월/일이 없는 아이는 월간 생일자 통계에서 제외한다.
+- `16.00.00`, `15.00.00`처럼 연도만 있는 값은 출생연도만 보존하고 생일 월/일은 비운다.
+
+### 완료
+- `supabase/migrations/20260627000100_nullable_child_birth.sql` 추가.
+  - `children.birth_month` NOT NULL 제거
+  - `children.birth_day` NOT NULL 제거
+- 앱 타입과 Supabase 타입 정의에서 아이 `birthMonth`/`birthDay`를 optional/null로 변경했다.
+- 아이 추가/수정 저장 로직이 생년월일 빈 값을 허용하도록 변경했다.
+- 아이 목록/통계 생일 표시가 생년월일 미입력과 출생연도만 있는 상태를 처리하도록 변경했다.
+- 월간 생일자 통계는 생일 월/일이 없는 아이를 제외하도록 변경했다.
+- 문서에 생년월일 미상 아이 등록 정책을 반영했다.
+
+### 원격 등록 시도
+- 보류된 7명 등록을 시도했으나, 원격 DB의 기존 NOT NULL 제약 때문에 실패했다.
+- 실패 메시지: `null value in column "birth_month" of relation "children" violates not-null constraint`
+- 현재 `.env.local`에는 Supabase publishable key만 있고 schema migration을 적용할 service role/DB 권한이 없어 Codex가 원격 schema를 직접 변경할 수 없다.
+
+### 검증
+- `pnpm run typecheck`: 통과
+- `.\node_modules\.bin\eslint.cmd .`: 통과
+- `.\node_modules\.bin\vitest.cmd run`: 3 files, 11 tests 통과
+- `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`: 1 file, 1 test 통과
+- `pnpm run build`: 통과
+
+### 다음 단계
+- Supabase SQL Editor 또는 migration 적용 도구에서 아래 SQL을 먼저 적용해야 한다.
+  - `alter table public.children alter column birth_month drop not null, alter column birth_day drop not null;`
+- 원격 DB schema 변경 후 보류된 7명을 다시 등록한다.
+
+## 2026-06-27 2학년~6학년 아이 명단 등록
+
+### 완료
+- 사용자가 제공한 52명 명단을 대량 등록 전 검증했다.
+- 원격 Supabase의 기존 반/아이 상태를 확인했다.
+  - 반은 이미 1학년~6학년이 존재해 새 반을 만들지 않았다.
+  - 기존 활성 아이는 1학년 6명이라 이번 2학년~6학년 명단과 충돌하지 않았다.
+- 생년월일이 유효한 45명을 Supabase 정규화 테이블에 등록했다.
+  - 2학년 9명
+  - 3학년 11명
+  - 4학년 8명
+  - 5학년 6명
+  - 6학년 11명
+- 보호자 정보 77행을 `child_parents`에 등록했다.
+- 등록일이 월까지만 있는 39건은 해당 월 1일로 저장된 것을 원격 DB 조회로 확인했다.
+- 정채원의 등록일 `2011/2002`는 유효한 날짜로 해석하지 않고 비워 저장했다.
+- 전체 개인정보 원본이 포함된 임시 등록 스크립트는 검증 후 삭제했다.
+
+### 보류
+- 현재 DB 스키마는 아이 생일 월/일이 필수라 생년월일이 비었거나 `00.00`인 7명은 임의 날짜로 왜곡하지 않고 보류했다.
+  - 노찬아: 생년월일 비어 있음
+  - 박로빈: 생년월일 비어 있음
+  - 이정우: 생년월일 비어 있음
+  - 송리유: `16.00.00`
+  - 이한나: 생년월일 비어 있음
+  - 김도완: `15.00.00`
+  - 김라온: 생년월일 비어 있음
+- 등록일이 생년월일보다 빠른 6건은 사용자가 제공한 값 그대로 저장했다. 필요하면 별도 정정이 필요하다.
+
+### 검증
+- `node tmp\register_children_roster.mjs`: dry-run 파싱 검증 통과
+- `node tmp\register_children_roster.mjs --inspect`: 원격 반 6개, 기존 아이 11명 확인
+- `node tmp\register_children_roster.mjs --execute`: 새 아이 45명, 보호자 77행 등록
+- `node tmp\register_children_roster.mjs --verify`: 원격 DB에서 45명/77행 확인, 월 단위 등록일 39/39건 1일 보정 확인
+- `pnpm run typecheck`: 통과
+- `.\node_modules\.bin\eslint.cmd .`: 통과
+
+### 다음 단계
+- 보류된 7명은 실제 생년월일을 확인한 뒤 추가 등록한다.
+- 생년월일을 모르는 아이도 앱에 등록해야 한다면, `children.birth_month`/`birth_day`를 nullable로 바꾸고 생일 통계에서 제외하는 schema/UI 변경이 먼저 필요하다.
+
 ## 2026-06-26 legacy localStorage 정리
 
 ### 확인

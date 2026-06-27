@@ -11,6 +11,7 @@
 - 앱 시작 시 이전 localStorage 저장 키(`seed-family-open-store-v1`)가 남아 있으면 삭제합니다.
 - 기존 `family_open_app_state` 단일 JSON 테이블은 이관 원본과 백업 용도로 유지합니다.
 - 아이 상세 정보와 보호자 연락처, 선택한 사진 Data URL도 Supabase 정규화 테이블에 저장합니다.
+- 생년월일을 모르는 아이는 생일 필드를 비워 등록할 수 있으며, 월간 생일자 통계에서는 제외됩니다.
 - 현재는 로그인 없는 기본 조직 1개 공개 쓰기 방식이며, 공개 운영 전에는 Supabase Auth 또는 공유 코드 기반 권한을 별도 설계해야 합니다.
 
 ## 개발 명령
@@ -36,4 +37,4 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-원격 프로젝트에는 `supabase/migrations/20260626000100_family_open_app_state.sql`과 `supabase/migrations/20260626000200_normalized_family_schema.sql`을 적용해야 합니다. 현재 구현은 로그인 없는 패밀리 오픈을 위해 기본 조직 1개에 대해 publishable key 공개 읽기/쓰기를 허용합니다.
+원격 프로젝트에는 `supabase/migrations/20260626000100_family_open_app_state.sql`, `supabase/migrations/20260626000200_normalized_family_schema.sql`, `supabase/migrations/20260627000100_nullable_child_birth.sql`을 적용해야 합니다. 현재 구현은 로그인 없는 패밀리 오픈을 위해 기본 조직 1개에 대해 publishable key 공개 읽기/쓰기를 허용합니다.

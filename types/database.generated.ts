@@ -115,8 +115,8 @@ export type Database = {
           gender: "male" | "female" | "unspecified";
           birth_date: string | null;
           birth_year: number | null;
-          birth_month: number;
-          birth_day: number;
+          birth_month: number | null;
+          birth_day: number | null;
           address: string | null;
           email: string | null;
           registered_at: string | null;
@@ -135,8 +135,8 @@ export type Database = {
           gender?: "male" | "female" | "unspecified";
           birth_date?: string | null;
           birth_year?: number | null;
-          birth_month: number;
-          birth_day: number;
+          birth_month?: number | null;
+          birth_day?: number | null;
           address?: string | null;
           email?: string | null;
           registered_at?: string | null;
@@ -155,8 +155,8 @@ export type Database = {
           gender?: "male" | "female" | "unspecified";
           birth_date?: string | null;
           birth_year?: number | null;
-          birth_month?: number;
-          birth_day?: number;
+          birth_month?: number | null;
+          birth_day?: number | null;
           address?: string | null;
           email?: string | null;
           registered_at?: string | null;

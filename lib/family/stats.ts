@@ -2,11 +2,15 @@ import type {
   AttendanceRecord,
   AttendanceSession,
   DashboardSummary,
+  FamilyChild,
+  FamilyClass,
   FamilyOpenStore,
   MonthlyQtDetail,
   ParentRelation,
   WeeklyAttendanceDetail,
 } from "@/lib/family/types";
+
+export type ChildrenSortMode = "name" | "class";
 
 function getClassName(store: FamilyOpenStore, classId: string) {
   return store.classes.find((item) => item.id === classId)?.name ?? "반 미지정";
@@ -72,7 +76,7 @@ export function parseBirthDateParts(birthDate: string) {
   return { year, month, day };
 }
 
-export function formatChildBirthDate(child: { birthDate?: string; birthYear?: number; birthMonth: number; birthDay: number }) {
+export function formatChildBirthDate(child: { birthDate?: string; birthYear?: number; birthMonth?: number; birthDay?: number }) {
   if (child.birthDate) {
     const parts = parseBirthDateParts(child.birthDate);
     if (parts) {
@@ -80,9 +84,17 @@ export function formatChildBirthDate(child: { birthDate?: string; birthYear?: nu
     }
   }
 
-  return child.birthYear
-    ? `${child.birthYear}년 ${child.birthMonth}월 ${child.birthDay}일`
-    : `${child.birthMonth}월 ${child.birthDay}일`;
+  if (child.birthMonth && child.birthDay) {
+    return child.birthYear
+      ? `${child.birthYear}년 ${child.birthMonth}월 ${child.birthDay}일`
+      : `${child.birthMonth}월 ${child.birthDay}일`;
+  }
+
+  if (child.birthYear) {
+    return `${child.birthYear}년 생일 미입력`;
+  }
+
+  return "생년월일 미입력";
 }
 
 export function formatTeacherBirthDate(teacher: { birthDate?: string; birthMonth?: number; birthDay?: number }) {
@@ -116,6 +128,19 @@ export function getActiveChildren(store: FamilyOpenStore, classId?: string) {
   return store.children.filter((child) => child.isActive && (!classId || child.classId === classId));
 }
 
+export function sortChildrenForRoster(children: FamilyChild[], classes: FamilyClass[], sortMode: ChildrenSortMode) {
+  const classOrder = new Map(classes.map((item, index) => [item.id, index]));
+  const getClassOrder = (classId: string) => classOrder.get(classId) ?? Number.MAX_SAFE_INTEGER;
+
+  return [...children].sort((a, b) => {
+    if (sortMode === "class") {
+      return getClassOrder(a.classId) - getClassOrder(b.classId) || a.name.localeCompare(b.name, "ko");
+    }
+
+    return a.name.localeCompare(b.name, "ko") || getClassOrder(a.classId) - getClassOrder(b.classId);
+  });
+}
+
 export function createEmptySession(sessionDate: string): AttendanceSession {
   return {
     sessionDate,
@@ -136,10 +161,10 @@ export function getChildRecord(session: AttendanceSession, childId: string): Att
 
 export function getMonthlyBirthdays(store: FamilyOpenStore, month: number) {
   return getActiveChildren(store)
-    .filter((child) => child.birthMonth === month)
+    .filter((child) => child.birthMonth === month && child.birthDay)
     .sort(
       (a, b) =>
-        a.birthDay - b.birthDay ||
+        (a.birthDay ?? 0) - (b.birthDay ?? 0) ||
         getClassName(store, a.classId).localeCompare(getClassName(store, b.classId), "ko") ||
         a.name.localeCompare(b.name, "ko"),
     );
