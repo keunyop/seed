@@ -128,6 +128,10 @@ export function getActiveChildren(store: FamilyOpenStore, classId?: string) {
   return store.children.filter((child) => child.isActive && (!classId || child.classId === classId));
 }
 
+export function getAttendanceRosterChildren(store: FamilyOpenStore, classId?: string) {
+  return sortChildrenForRoster(getActiveChildren(store, classId), store.classes, "name");
+}
+
 export function sortChildrenForRoster(children: FamilyChild[], classes: FamilyClass[], sortMode: ChildrenSortMode) {
   const classOrder = new Map(classes.map((item, index) => [item.id, index]));
   const getClassOrder = (classId: string) => classOrder.get(classId) ?? Number.MAX_SAFE_INTEGER;

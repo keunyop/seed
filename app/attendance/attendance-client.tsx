@@ -9,7 +9,8 @@ import { SaveStatus } from "@/components/domain/save-status";
 import { useFamilyOpenStore } from "@/components/domain/use-family-open-store";
 import { PressableButton } from "@/components/ui/pressable-button";
 import { getNearestWeekdayDate } from "@/lib/dates/service-week";
-import { getActiveChildren, getChildRecord, getClassLabel, getSession } from "@/lib/family/stats";
+import { getAttendanceRosterChildren, getChildRecord, getClassLabel, getSession } from "@/lib/family/stats";
+import { cn } from "@/lib/utils";
 import type { AttendanceRecord, FamilyChild } from "@/lib/family/types";
 
 type AttendanceClientProps = {
@@ -25,12 +26,34 @@ type AttendanceDraft = {
   isDirty: boolean;
 };
 
+type AttendanceDraftState = {
+  key: string;
+  draft: AttendanceDraft;
+};
+
 const ALL_CLASSES_VALUE = "all";
 
 function getLocalIsoDate() {
   const date = new Date();
   const offset = date.getTimezoneOffset() * 60_000;
   return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+}
+
+function getToggleButtonClass(isPressed: boolean, tone: "present" | "qt") {
+  const activeClass =
+    tone === "present"
+      ? "border-duo-green bg-duo-green text-almost-black shadow-[0_3px_0_#3f8f01]"
+      : "border-sky-blue bg-sky-blue text-white shadow-[0_3px_0_#0b79b7]";
+  const inactiveHoverClass =
+    tone === "present"
+      ? "hover:border-duo-green/60 hover:bg-duo-green-light/50"
+      : "hover:border-sky-blue/60 hover:bg-sky-blue/10";
+
+  return cn(
+    "inline-flex min-h-12 items-center justify-center gap-1 rounded-[12px] border-2 px-3 text-sm font-extrabold transition-[background-color,border-color,box-shadow,transform,color] active:translate-y-[1px]",
+    isPressed ? activeClass : "border-cloud-gray bg-[#f7f7f7] text-graphite",
+    !isPressed && inactiveHoverClass,
+  );
 }
 
 export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
@@ -42,45 +65,40 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
   const selectedClassValue =
     classId === ALL_CLASSES_VALUE || store.classes.some((item) => item.id === classId) ? classId : ALL_CLASSES_VALUE;
   const selectedClassId = selectedClassValue === ALL_CLASSES_VALUE ? undefined : selectedClassValue;
-  const children = useMemo(() => getActiveChildren(store, selectedClassId), [selectedClassId, store]);
-  const session = getSession(store, sessionDate);
+  const children = useMemo(
+    () => getAttendanceRosterChildren(store, selectedClassId),
+    [selectedClassId, store],
+  );
+  const classNameById = useMemo(() => new Map(store.classes.map((item) => [item.id, item.name])), [store.classes]);
+  const session = useMemo(() => getSession(store, sessionDate), [sessionDate, store]);
   const sessionKey = `${sessionDate}:${session.savedAt}`;
-  const [draft, setDraft] = useState<AttendanceDraft>(() => ({
+  const freshDraft = useMemo<AttendanceDraft>(() => ({
     sessionDate,
     sessionKey,
     records: session.records,
     note: session.note,
     shareWithPastor: session.shareWithPastor ?? false,
     isDirty: false,
-  }));
+  }), [session.records, session.note, session.shareWithPastor, sessionDate, sessionKey]);
+  const [draftState, setDraftState] = useState<AttendanceDraftState>(() => ({ key: sessionKey, draft: freshDraft }));
+  const activeDraft = draftState.key === sessionKey ? draftState.draft : freshDraft;
 
-  if (draft.sessionDate !== sessionDate || (!draft.isDirty && draft.sessionKey !== sessionKey)) {
-    setDraft({
-      sessionDate,
-      sessionKey,
-      records: session.records,
-      note: session.note,
-      shareWithPastor: session.shareWithPastor ?? false,
-      isDirty: false,
+  function setActiveDraft(recipe: (current: AttendanceDraft) => AttendanceDraft) {
+    setDraftState((current) => {
+      const currentDraft = current.key === sessionKey ? current.draft : freshDraft;
+      return { key: sessionKey, draft: recipe(currentDraft) };
     });
   }
-
-  const activeDraft =
-    draft.sessionDate === sessionDate
-      ? draft
-      : {
-          sessionDate,
-          sessionKey,
-          records: session.records,
-          note: session.note,
-          shareWithPastor: session.shareWithPastor ?? false,
-          isDirty: false,
-        };
-  const presentCount = children.filter((child) => (activeDraft.records[child.id] ?? { qtCompleted: false }).status === "present").length;
+  const presentCount = useMemo(
+    () =>
+      children.filter((child) => (activeDraft.records[child.id] ?? { qtCompleted: false }).status === "present")
+        .length,
+    [activeDraft.records, children],
+  );
   const notPresentCount = children.length - presentCount;
 
   function updateDraftRecord(childId: string, recipe: (record: AttendanceRecord) => AttendanceRecord) {
-    setDraft((current) => ({
+    setActiveDraft((current) => ({
       ...current,
       records: {
         ...current.records,
@@ -106,11 +124,11 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
 
   function handleSaveAll() {
     saveAttendanceSession(sessionDate, activeDraft.records, activeDraft.note, activeDraft.shareWithPastor);
-    setDraft((current) => ({ ...current, isDirty: false }));
+    setActiveDraft((current) => ({ ...current, isDirty: false }));
   }
 
   return (
-    <main className="min-h-dvh bg-white pb-[calc(96px+var(--safe-bottom))]">
+    <main className="min-h-dvh bg-white pb-[calc(128px+var(--safe-bottom))]">
       <div className="mx-auto w-full max-w-[920px] px-4 py-5 sm:px-6">
         <header className="rounded-[12px] border-2 border-cloud-gray p-4 sm:p-6">
           <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -148,6 +166,27 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
           </div>
         </header>
 
+        <div className="sticky bottom-[calc(76px+var(--safe-bottom))] z-10 mt-4 rounded-[12px] border-2 border-cloud-gray bg-white/95 p-2 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:p-0">
+          <div className="flex items-center gap-3">
+            <p
+              aria-live="polite"
+              className={cn(
+                "min-w-0 flex-1 text-sm font-extrabold",
+                activeDraft.isDirty ? "text-sky-blue-text" : "text-graphite",
+              )}
+            >
+              {activeDraft.isDirty ? "변경 있음" : "변경 없음"}
+            </p>
+            <PressableButton
+              className="min-w-28 px-4 sm:min-w-36"
+              disabled={!isReady || !activeDraft.isDirty}
+              onClick={handleSaveAll}
+            >
+              저장
+            </PressableButton>
+          </div>
+        </div>
+
         <section className="mt-4 rounded-[12px] border-2 border-cloud-gray p-4 sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -156,7 +195,6 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
               </h2>
               <p className="mt-1 text-sm font-bold text-graphite">미출석 {notPresentCount}명</p>
             </div>
-            {activeDraft.isDirty ? <p className="text-sm font-extrabold text-sky-blue-text">저장할 변경 있음</p> : null}
           </div>
 
           {children.length === 0 ? (
@@ -187,12 +225,17 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
                               <Info aria-hidden="true" className="h-4 w-4" />
                             </button>
                           </div>
+                          {!selectedClassId ? (
+                            <p className="mt-1 text-sm font-bold text-graphite">
+                              {classNameById.get(child.classId) ?? "반 미지정"}
+                            </p>
+                          ) : null}
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           aria-pressed={record.status === "present"}
-                          className="inline-flex min-h-12 items-center justify-center gap-1 rounded-[12px] border-2 border-duo-green px-3 text-sm font-extrabold text-duo-green-dark transition aria-pressed:bg-duo-green aria-pressed:text-almost-black aria-pressed:shadow-[0_3px_0_#3f8f01]"
+                          className={getToggleButtonClass(record.status === "present", "present")}
                           onClick={() => toggleDraftPresent(child.id)}
                           type="button"
                         >
@@ -201,7 +244,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
                         </button>
                         <button
                           aria-pressed={record.qtCompleted}
-                          className="min-h-12 rounded-[12px] border-2 border-sky-blue px-3 text-sm font-extrabold text-sky-blue-text transition aria-pressed:bg-sky-blue aria-pressed:text-white aria-pressed:shadow-[0_3px_0_#0b79b7]"
+                          className={getToggleButtonClass(record.qtCompleted, "qt")}
                           onClick={() => toggleDraftQt(child.id)}
                           type="button"
                         >
@@ -224,7 +267,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
                 checked={activeDraft.shareWithPastor}
                 className="h-5 w-5 accent-duo-green"
                 onChange={(event) =>
-                  setDraft((current) => ({ ...current, shareWithPastor: event.target.checked, isDirty: true }))
+                  setActiveDraft((current) => ({ ...current, shareWithPastor: event.target.checked, isDirty: true }))
                 }
                 type="checkbox"
               />
@@ -237,15 +280,12 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
               className="min-h-28 w-full resize-y rounded-[12px] border-2 border-cloud-gray p-3 text-base font-medium text-almost-black"
               maxLength={500}
               onChange={(event) => {
-                setDraft((current) => ({ ...current, note: event.target.value, isDirty: true }));
+                setActiveDraft((current) => ({ ...current, note: event.target.value, isDirty: true }));
               }}
               value={activeDraft.note}
             />
           </label>
         </section>
-        <PressableButton className="mt-4 w-full" disabled={!isReady || !activeDraft.isDirty} onClick={handleSaveAll}>
-          저장
-        </PressableButton>
       </div>
       {selectedChild ? (
         <ChildDetailModal

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { createDefaultFamilyOpenStore } from "@/lib/family/default-store";
+import { createEmptyFamilyOpenStore } from "@/lib/family/default-store";
 import { isValidBirthMonthDay, parseBirthDateParts } from "@/lib/family/stats";
 import { LEGACY_LOCAL_STORE_KEY } from "@/lib/family/store-persistence";
 import { loadFamilyOpenStoreFromSupabase, saveFamilyOpenStoreToSupabase } from "@/lib/family/supabase-store";
@@ -121,7 +121,7 @@ function removeLegacyLocalStore() {
 }
 
 export function useFamilyOpenStore() {
-  const [store, setStore] = useState<FamilyOpenStore>(() => createDefaultFamilyOpenStore());
+  const [store, setStore] = useState<FamilyOpenStore>(() => createEmptyFamilyOpenStore());
   const [saveState, setSaveState] = useState<SaveState>("loading");
   const [isReady, setIsReady] = useState(false);
 

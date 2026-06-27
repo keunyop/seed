@@ -8,6 +8,7 @@ export function PressableButton({ className, children, type = "button", ...props
     <button
       className={cn(
         "pressable-shadow inline-flex min-h-12 items-center justify-center gap-2 rounded-[12px] bg-duo-green px-5 py-3 text-center text-base font-extrabold text-almost-black transition-[box-shadow,transform,background-color] hover:bg-[#61d80b] disabled:cursor-not-allowed disabled:opacity-60",
+        "disabled:bg-cloud-gray disabled:text-graphite disabled:hover:bg-cloud-gray",
         className,
       )}
       type={type}
@@ -17,4 +18,3 @@ export function PressableButton({ className, children, type = "button", ...props
     </button>
   );
 }
-

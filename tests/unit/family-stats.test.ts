@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { createDefaultFamilyOpenStore } from "@/lib/family/default-store";
+import { createDefaultFamilyOpenStore, createEmptyFamilyOpenStore } from "@/lib/family/default-store";
 import {
   formatChildBirthDate,
   formatParentRelation,
   formatTeacherBirthDate,
+  getAttendanceRosterChildren,
   getChildRecord,
   getClassLabel,
   getDashboardSummary,
@@ -18,6 +19,15 @@ import {
 import { normalizeFamilyOpenStore } from "@/lib/family/store-persistence";
 
 describe("family open stats", () => {
+  it("keeps the runtime empty store free of sample data", () => {
+    const store = createEmptyFamilyOpenStore();
+
+    expect(store.classes).toEqual([]);
+    expect(store.teachers).toEqual([]);
+    expect(store.children).toEqual([]);
+    expect(normalizeFamilyOpenStore(null).classes).toEqual([]);
+  });
+
   it("validates real birth month and day combinations", () => {
     expect(isValidBirthMonthDay(2, 29)).toBe(true);
     expect(isValidBirthMonthDay(2, 30)).toBe(false);
@@ -129,7 +139,7 @@ describe("family open stats", () => {
     const store = createDefaultFamilyOpenStore();
 
     expect(getTeacherName(store, "teacher-minji")).toBe("김민지 선생님");
-    expect(getClassLabel(store, "class-kindergarten")).toBe("유치부 믿음반 · 김민지 선생님");
+    expect(getClassLabel(store, "class-kindergarten")).toBe("테스트 1반 · 김민지 선생님");
   });
 
   it("sorts children by name by default or by class order", () => {
@@ -151,5 +161,25 @@ describe("family open stats", () => {
       "하준",
     ]);
     expect(children.map((child) => child.name)).toEqual(["하준", "가은", "나래"]);
+  });
+
+  it("sorts attendance roster children by name within the selected class", () => {
+    const store = createDefaultFamilyOpenStore();
+    const children = [
+      { ...store.children[1], name: "하준", classId: "class-kindergarten" },
+      { ...store.children[2], name: "가은", classId: "class-elementary" },
+      { ...store.children[0], name: "나래", classId: "class-kindergarten" },
+    ];
+    const attendanceStore = { ...store, children };
+
+    expect(getAttendanceRosterChildren(attendanceStore, "class-kindergarten").map((child) => child.name)).toEqual([
+      "나래",
+      "하준",
+    ]);
+    expect(getAttendanceRosterChildren(attendanceStore).map((child) => child.name)).toEqual([
+      "가은",
+      "나래",
+      "하준",
+    ]);
   });
 });

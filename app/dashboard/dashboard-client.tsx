@@ -6,7 +6,8 @@ import { useFamilyOpenStore } from "@/components/domain/use-family-open-store";
 import { getTeacherName } from "@/lib/family/stats";
 
 export function DashboardClient() {
-  const { store } = useFamilyOpenStore();
+  const { store, isReady, saveState } = useFamilyOpenStore();
+  const hasLoadError = isReady && saveState === "error" && store.classes.length === 0;
 
   return (
     <main className="min-h-dvh bg-white pb-[calc(88px+var(--safe-bottom))]">
@@ -48,7 +49,17 @@ export function DashboardClient() {
           </div>
 
           <div className="mt-4 grid gap-3">
-            {store.classes.map((item) => (
+            {!isReady ? (
+              <div className="rounded-[12px] border-2 border-cloud-gray px-4 py-5 text-sm font-extrabold text-graphite">
+                반 정보를 불러오는 중입니다.
+              </div>
+            ) : null}
+            {isReady && store.classes.length === 0 ? (
+              <div className="rounded-[12px] border-2 border-cloud-gray px-4 py-5 text-sm font-extrabold text-graphite">
+                {hasLoadError ? "반 정보를 불러오지 못했습니다." : "등록된 반이 없습니다."}
+              </div>
+            ) : null}
+            {isReady ? store.classes.map((item) => (
               <a
                 className="flex min-h-16 items-center justify-between gap-3 rounded-[12px] border-2 border-cloud-gray px-4 text-left transition hover:border-duo-green focus-visible:border-sky-blue"
                 href={`/attendance?classId=${item.id}`}
@@ -57,7 +68,7 @@ export function DashboardClient() {
                 <span className="font-bold text-almost-black">{item.name}</span>
                 <span className="text-sm font-extrabold text-graphite">{getTeacherName(store, item.teacherId)}</span>
               </a>
-            ))}
+            )) : null}
           </div>
         </section>
       </div>

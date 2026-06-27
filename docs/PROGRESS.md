@@ -1,5 +1,46 @@
 # Progress
 
+## 2026-06-27 출석 체크 모바일 UI와 성능 보강
+
+### 완료
+- `/attendance` 출석 체크 명단을 선택된 반 또는 전체 범위 안에서 가나다순으로 표시하도록 변경했다.
+- 출석/큐티 토글의 미선택 상태를 회색 배경/회색 border로 바꾸고, 선택 상태에서만 초록/파랑 강조색과 눌림 shadow가 보이도록 정리했다.
+- 전체 반 보기에서는 아이 이름 아래에 반 이름을 표시해 모바일에서 아이 소속을 구분하기 쉽게 했다.
+- 모바일에서 저장 버튼을 하단 내비게이션 위 sticky action bar로 이동해 긴 명단을 체크한 뒤에도 저장 액션에 접근하기 쉽게 했다.
+- 공통 `PressableButton` disabled 상태를 회색 계열로 바꿔 저장할 변경이 없을 때 비활성 느낌이 명확하게 보이도록 했다.
+- 출석 화면 draft 동기화에서 렌더 중 `setState` 패턴을 제거하고, 현재 세션 key에 맞는 draft를 파생해 사용하는 구조로 바꿔 불필요한 렌더 위험을 줄였다.
+- 출석 명단 정렬 helper와 단위 테스트를 추가했다.
+- MVP 설계 문서에 출석 명단 가나다순, 토글 미선택 회색 상태, 모바일 sticky 저장 액션 기준을 반영했다.
+
+### 검증
+- `pnpm run typecheck`: 통과
+- `.\node_modules\.bin\eslint.cmd .`: 통과
+- `.\node_modules\.bin\vitest.cmd run`: 3 files, 14 tests 통과
+- `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`: 1 file, 1 test 통과
+- `pnpm run build`: 통과
+- production 서버를 임시로 띄워 390×844 모바일 viewport에서 `/attendance` 확인: `scrollWidth = 390`, `innerWidth = 390`, 가로 스크롤 없음.
+- 로컬 확인 환경에서는 원격 데이터가 로드되지 않아 실제 아이 토글 DOM 색상은 화면에서 직접 확인하지 못했고, 코드/테스트로 회귀를 확인했다.
+
+## 2026-06-27 초기 렌더링 샘플 데이터 제거
+
+### 완료
+- 홈 화면 로딩 중 잠깐 보이던 예전 테스트 반명(`유치부 믿음반`, `초등부 소망반`)의 원인을 코드에서 확인했다.
+- 원인은 로컬 DB나 캐시 조회가 아니라 런타임 초기 상태와 빈 Supabase fallback에 테스트용 기본 store가 사용되던 경로였다.
+- 앱 런타임 초기값을 빈 store로 바꾸고, Supabase 정규화 테이블이 비어 있을 때 테스트 샘플 데이터를 자동 저장하지 않도록 변경했다.
+- 원격 로드 실패/환경변수 누락/보정 fallback도 샘플 store 대신 빈 store를 사용하도록 변경했다.
+- 홈 화면은 Supabase 로딩 중 반 목록 대신 로딩 상태를 표시하고, 로드 실패와 로드 후 빈 상태를 구분해 표시한다.
+- 테스트 fixture의 예전 반명도 `테스트 1반`, `테스트 2반`으로 바꿔 E2E helper가 예전 반명을 원격 DB에 다시 심지 않도록 정리했다.
+- README와 MVP 설계 문서에 런타임 샘플 데이터 미사용 정책을 반영했다.
+
+### 검증
+- `pnpm run typecheck`: 통과
+- `.\node_modules\.bin\eslint.cmd .`: 통과
+- `.\node_modules\.bin\vitest.cmd run`: 3 files, 13 tests 통과
+- `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`: 1 file, 1 test 통과
+- `pnpm run build`: 통과
+- `rg "createDefaultFamilyOpenStore" app components lib`: 런타임 import 없음. 정의 파일만 남음.
+- E2E는 원격 Supabase 상태를 초기화하는 테스트라 이번 작업에서는 실행하지 않았다.
+
 ## 2026-06-27 남은 7명 등록과 아이 목록 정렬
 
 ### 완료

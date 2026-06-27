@@ -1,5 +1,15 @@
 import type { FamilyOpenStore } from "@/lib/family/types";
 
+export function createEmptyFamilyOpenStore(): FamilyOpenStore {
+  return {
+    version: 1,
+    teachers: [],
+    classes: [],
+    children: [],
+    attendanceByDate: {},
+  };
+}
+
 export function createDefaultFamilyOpenStore(): FamilyOpenStore {
   return {
     version: 1,
@@ -24,8 +34,8 @@ export function createDefaultFamilyOpenStore(): FamilyOpenStore {
       },
     ],
     classes: [
-      { id: "class-kindergarten", name: "유치부 믿음반", teacherId: "teacher-minji" },
-      { id: "class-elementary", name: "초등부 소망반", teacherId: "teacher-daniel" },
+      { id: "class-kindergarten", name: "테스트 1반", teacherId: "teacher-minji" },
+      { id: "class-elementary", name: "테스트 2반", teacherId: "teacher-daniel" },
     ],
     children: [
       {

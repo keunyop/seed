@@ -1,7 +1,7 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { safeParsePublicEnv } from "@/lib/env";
-import { createDefaultFamilyOpenStore } from "@/lib/family/default-store";
+import { createEmptyFamilyOpenStore } from "@/lib/family/default-store";
 import { normalizeFamilyOpenStore } from "@/lib/family/store-persistence";
 import type {
   AttendanceRecord,
@@ -356,13 +356,13 @@ export function isFamilyOpenSupabaseConfigured() {
 }
 
 export async function loadFamilyOpenStoreFromSupabase(): Promise<RemoteStoreResult> {
-  const defaultStore = createDefaultFamilyOpenStore();
+  const emptyStore = createEmptyFamilyOpenStore();
   const supabase = createFamilyOpenSupabaseClient();
 
   if (!supabase) {
     return {
       ok: false,
-      store: defaultStore,
+      store: emptyStore,
       message: "Supabase 환경변수가 설정되지 않았습니다.",
     };
   }
@@ -415,7 +415,7 @@ export async function loadFamilyOpenStoreFromSupabase(): Promise<RemoteStoreResu
   if (error) {
     return {
       ok: false,
-      store: defaultStore,
+      store: emptyStore,
       message: error.message,
     };
   }
@@ -427,10 +427,7 @@ export async function loadFamilyOpenStoreFromSupabase(): Promise<RemoteStoreResu
     (attendanceSessionsResult.data?.length ?? 0) > 0;
 
   if (!hasNormalizedData) {
-    const saveResult = await saveFamilyOpenStoreWithClient(supabase, defaultStore);
-    return saveResult.ok
-      ? { ok: true, store: defaultStore }
-      : { ok: false, store: defaultStore, message: saveResult.message };
+    return { ok: true, store: emptyStore };
   }
 
   const parentsByChildId = new Map<string, ParentContact[]>();

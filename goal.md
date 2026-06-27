@@ -709,3 +709,149 @@
 - 남은 문제:
   - Playwright E2E는 `resetRemoteStore()`로 원격 Supabase 상태를 쓸 수 있어 미실행
   - 이 변경은 아직 운영 배포에 반영되지 않았으므로 재배포 필요
+
+---
+
+# Goal Addendum
+
+## 작업
+- 한 문장으로 설명: 앱 초기 렌더링에서 예전 테스트 반 데이터가 잠깐 보이는 런타임 fallback 경로를 제거한다.
+- 사용자에게 주는 가치: 홈 화면과 다른 화면이 항상 현재 Supabase DB 데이터만 기준으로 표시되고, 빈 DB나 로딩 중에도 테스트 데이터가 섞여 보이지 않는다.
+
+## 범위
+### 포함
+- 런타임 초기 상태를 테스트 샘플 데이터가 아닌 빈 store로 변경
+- Supabase 정규화 테이블이 비어 있을 때 기본 샘플 데이터를 자동 저장하지 않도록 변경
+- store 보정 fallback이 샘플 데이터 대신 빈 store를 사용하도록 변경
+- 홈 화면 로딩 상태 보강
+- 테스트 fixture와 런타임 store 생성 경로 분리 검증
+- README, MVP 설계 문서, PROGRESS 기록 갱신
+
+### 제외
+- 운영 DB 데이터 삭제 또는 초기화
+- E2E가 원격 DB를 reset하는 시나리오 실행
+- Auth/RLS 권한 구조 변경
+
+## 현재 상태
+- 관련 화면/경로: `/dashboard`, 공통 `useFamilyOpenStore`
+- 관련 저장소: Supabase 정규화 업무 테이블, legacy `family_open_app_state` 백업 테이블
+- 관련 테스트: family stats unit, DB migration test, typecheck, ESLint, build
+
+## 가정과 결정 기록
+- [2026-06-27] 예전 데이터 노출은 로컬 DB/cache 조회가 아니라 런타임 기본 샘플 store가 초기 렌더와 빈 DB fallback에 사용된 결과로 본다.
+- [2026-06-27] 테스트 fixture는 유지하되 앱 런타임에서 import하지 않도록 분리한다.
+- [2026-06-27] Supabase 정규화 테이블이 비어 있으면 샘플 seed를 자동 생성하지 않고 빈 상태를 보여준다.
+
+## 완료 조건
+- [x] 초기 React state가 샘플 반/아이/선생님 데이터를 포함하지 않는다.
+- [x] Supabase 로드 실패 또는 빈 DB 상태에서 샘플 데이터를 저장하거나 표시하지 않는다.
+- [x] 홈 화면 로딩 중 예전 테스트 반명이 보이지 않는다.
+- [x] 관련 테스트와 문서가 갱신되고 typecheck/lint/unit/DB/build가 통과한다.
+
+## 테스트 계획
+- 정적 검사: `pnpm run typecheck`, ESLint
+- 단위 테스트: `.\node_modules\.bin\vitest.cmd run`
+- DB 테스트: `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`
+- 빌드: `pnpm run build`
+- E2E: 원격 DB reset 위험 때문에 이번 작업에서는 기본적으로 실행하지 않고 사유를 기록한다.
+
+## 위험과 되돌리기
+- 위험: Supabase 설정이 없거나 비어 있으면 더 이상 테스트 샘플이 보이지 않고 빈 상태가 보인다.
+- 롤백 방법: 빈 store 초기화/fallback 변경을 되돌리고 기존 기본 샘플 store 경로를 복구한다.
+
+## 검증 결과
+- 실행한 명령:
+  - `rg "createDefaultFamilyOpenStore" app components lib`
+  - `pnpm run typecheck`
+  - `.\node_modules\.bin\eslint.cmd .`
+  - `.\node_modules\.bin\vitest.cmd run`
+  - `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`
+  - `pnpm run build`
+- 결과:
+  - 런타임 경로에서는 `createDefaultFamilyOpenStore()` import가 사라지고 정의 파일만 남았다.
+  - 예전 테스트 반명 문자열은 런타임/테스트 fixture에서 제거되었고 진행 기록의 원인 설명에만 남았다.
+  - typecheck 통과
+  - ESLint 통과
+  - Vitest 3 files, 13 tests 통과
+  - DB Vitest 1 file, 1 test 통과
+  - Next.js production build 통과
+- 남은 문제:
+  - Playwright E2E는 `resetRemoteStore()`가 원격 Supabase 상태를 초기화할 수 있어 실행하지 않았다.
+  - 이 변경은 아직 운영 배포에 반영되지 않았으므로 재배포가 필요하다.
+
+---
+
+# Goal Addendum
+
+## 작업
+- 한 문장으로 설명: 출석 체크 명단을 가나다순으로 정렬하고 모바일 기준으로 출석 화면의 UI/UX와 렌더링 성능을 보강한다.
+- 사용자에게 주는 가치: 교사가 휴대폰에서 아이를 더 빨리 찾고, 아직 누르지 않은 출석/큐티 버튼을 명확히 구분하며, 출석 체크 흐름이 더 안정적으로 동작한다.
+
+## 범위
+### 포함
+- `/attendance` 아이 명단을 기본 가나다순으로 정렬
+- 출석/큐티 미선택 버튼을 회색 계열의 비활성 느낌으로 변경
+- 모바일 기준 출석 화면 정보 밀도, 터치 영역, 저장 버튼 접근성 점검 및 개선
+- 불필요한 반복 계산/렌더링이 있으면 memoization 등으로 개선
+- 관련 단위 테스트와 문서/진행 기록 갱신
+
+### 제외
+- 출석 데이터 모델 또는 DB schema 변경
+- 운영 DB 데이터 수정 또는 초기화
+- Auth/RLS 권한 구조 변경
+- 앱 전체 정보 구조의 대규모 개편
+
+## 현재 상태
+- 관련 화면/경로: `/attendance`, 공통 저장 hook, family stats helper
+- 관련 테이블/마이그레이션: `classes`, `children`, `attendance_sessions`, `attendance_records` 변경 없음 예상
+- 관련 테스트: family stats unit, DB migration test, typecheck, ESLint, build, 가능하면 모바일 화면 확인
+
+## 가정과 결정 기록
+- [2026-06-27] 출석 화면의 가나다순은 선택된 반 또는 전체 필터 안에서 아이 이름 기준 한국어 locale 오름차순으로 적용한다.
+- [2026-06-27] 버튼의 미선택 상태는 실제 disabled가 아니라 클릭 가능한 회색 상태로 표시한다. 이유: 사용자는 눌러서 선택할 수 있어야 하기 때문이다.
+- [2026-06-27] 모바일 UI 개선은 출석 체크의 빠른 입력 흐름을 해치지 않는 작은 수직 변경으로 제한한다.
+
+## 완료 조건
+- [x] 출석 체크 명단이 가나다순으로 표시된다.
+- [x] 출석과 큐티 버튼의 미선택 상태가 회색 계열로 보이고 클릭 가능하다.
+- [x] 모바일 기준에서 주요 터치 영역과 저장 흐름이 더 명확해진다.
+- [x] 불필요한 계산/렌더링 개선이 필요한 부분은 반영된다.
+- [x] 관련 테스트와 문서가 갱신되고 typecheck/lint/unit/DB/build가 통과한다.
+- [x] 진행 결과가 `docs/PROGRESS.md`에 기록된다.
+
+## 테스트 계획
+- 정적 검사: `pnpm run typecheck`, ESLint
+- 단위 테스트: `.\node_modules\.bin\vitest.cmd run`
+- DB 테스트: `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`
+- 빌드: `pnpm run build`
+- 화면 확인: 가능하면 로컬 dev server와 모바일 viewport에서 `/attendance` 확인
+- E2E: 원격 Supabase reset 위험이 있으면 실행하지 않고 사유를 기록한다.
+
+## 위험과 되돌리기
+- 위험: 버튼 색상 대비가 낮아지면 상태 인지가 어려워질 수 있다.
+- 위험: sticky 저장 UI가 콘텐츠를 가릴 수 있다.
+- 롤백 방법: `/attendance` 화면 변경과 정렬 helper 변경을 되돌린다.
+
+## 검증 결과
+- 실행한 명령:
+  - `pnpm run typecheck`
+  - `.\node_modules\.bin\eslint.cmd .`
+  - `.\node_modules\.bin\vitest.cmd run`
+  - `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`
+  - `pnpm run build`
+  - production 서버 임시 실행 후 Playwright 390×844 모바일 viewport 확인
+- 결과:
+  - 출석 명단용 `getAttendanceRosterChildren` helper 추가 및 가나다순 단위 테스트 통과
+  - 출석/큐티 미선택 버튼이 회색 계열 상태로 표시되도록 변경
+  - 모바일 sticky 저장 bar 추가, 공통 disabled 버튼 회색 상태 보강
+  - 렌더 중 draft `setState` 패턴 제거
+  - typecheck 통과
+  - ESLint 통과
+  - Vitest 3 files, 14 tests 통과
+  - DB Vitest 1 file, 1 test 통과
+  - Next.js production build 통과
+  - 390×844 `/attendance` 확인: `scrollWidth = 390`, `innerWidth = 390`, 가로 스크롤 없음
+- 남은 문제:
+  - 로컬 확인 환경에서는 원격 데이터가 로드되지 않아 실제 아이 토글 DOM 색상은 화면에서 직접 확인하지 못했다.
+  - Playwright E2E는 원격 Supabase 상태 초기화 위험 때문에 실행하지 않았다.
+  - 이 변경은 아직 운영 배포에 반영되지 않았으므로 재배포가 필요하다.

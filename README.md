@@ -9,6 +9,7 @@
 - 데이터는 Supabase 정규화 업무 테이블(`organizations`, `teachers`, `classes`, `children`, `child_parents`, `attendance_sessions`, `attendance_records`)에 저장합니다.
 - 앱 상태는 브라우저 `localStorage`에 저장하지 않고 Supabase DB를 기준으로 읽고 씁니다.
 - 앱 시작 시 이전 localStorage 저장 키(`seed-family-open-store-v1`)가 남아 있으면 삭제합니다.
+- 앱 런타임은 테스트용 기본 샘플 데이터를 초기 화면이나 빈 DB fallback으로 표시하지 않습니다. Supabase 로딩 중에는 로딩 상태를, 데이터가 없으면 빈 상태를 표시합니다.
 - 기존 `family_open_app_state` 단일 JSON 테이블은 이관 원본과 백업 용도로 유지합니다.
 - 아이 상세 정보와 보호자 연락처, 선택한 사진 Data URL도 Supabase 정규화 테이블에 저장합니다.
 - 생년월일을 모르는 아이는 생일 필드를 비워 등록할 수 있으며, 월간 생일자 통계에서는 제외됩니다.

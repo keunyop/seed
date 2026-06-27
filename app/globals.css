@@ -86,6 +86,11 @@ a {
   transform: translateY(2px);
 }
 
+.pressable-shadow:disabled {
+  box-shadow: 0 4px 0 #cfcfcf;
+  transform: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -96,4 +101,3 @@ a {
     transition-duration: 0.01ms !important;
   }
 }
-
