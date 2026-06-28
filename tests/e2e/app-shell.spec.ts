@@ -156,7 +156,7 @@ test("Supabase-backed attendance flow supports teacher and class management", as
   await expect(page.getByRole("heading", { name: teacherName })).toBeVisible();
   await waitForSaved(page);
 
-  await page.getByRole("button", { name: `${teacherName} 수정` }).click();
+  await page.getByRole("button", { name: `${teacherName} 상세정보 열기` }).click();
   await fillTeacherDialog(page, { name: editedTeacherName, month: "2", day: "20", phone: "604-111-1111" });
   await expect(page.getByRole("heading", { name: editedTeacherName })).toBeVisible();
   await expect(page.getByText("2월 20일 · 604-111-1111")).toBeVisible();
@@ -164,7 +164,7 @@ test("Supabase-backed attendance flow supports teacher and class management", as
   await page.getByRole("button", { name: "선생님 등록" }).click();
   await fillTeacherDialog(page, { name: tempTeacherName, month: "3", day: "5", phone: "604-222-2222" });
   await expect(page.getByRole("heading", { name: tempTeacherName })).toBeVisible();
-  await page.getByRole("button", { name: `${tempTeacherName} 수정` }).click();
+  await page.getByRole("button", { name: `${tempTeacherName} 상세정보 열기` }).click();
   await deleteFromOpenDialog(page);
   await expect(page.getByRole("heading", { name: tempTeacherName })).toHaveCount(0);
 

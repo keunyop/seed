@@ -2,7 +2,7 @@
 
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Trash2, X } from "lucide-react";
+import { Camera, Pencil, Plus, Trash2, X } from "lucide-react";
 import { ChildAvatar } from "@/components/domain/child-avatar";
 import { PressableButton } from "@/components/ui/pressable-button";
 import { preparePhotoDataUrl } from "@/lib/family/photo-data-url";
@@ -104,7 +104,9 @@ export function ChildDetailModal({
   const [classId, setClassId] = useState(initialClassId);
   const [notes, setNotes] = useState(child?.notes ?? "");
   const [error, setError] = useState("");
-  const [photoStatus, setPhotoStatus] = useState<"idle" | "processing" | "compressed">("idle");
+  const [photoStatus, setPhotoStatus] = useState<"idle" | "processing">("idle");
+  const [isPhotoMenuOpen, setIsPhotoMenuOpen] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const photoRequestIdRef = useRef(0);
 
   const selectedClassId = classes.some((item) => item.id === classId) ? classId : "";
@@ -136,7 +138,6 @@ export function ChildDetailModal({
     setPhotoStatus("idle");
 
     if (!file) {
-      setPhotoDataUrl("");
       return;
     }
 
@@ -155,7 +156,39 @@ export function ChildDetailModal({
     }
 
     setPhotoDataUrl(result.dataUrl);
-    setPhotoStatus(result.wasCompressed ? "compressed" : "idle");
+    setPhotoStatus("idle");
+    setIsPhotoMenuOpen(false);
+  }
+
+  function openPhotoPicker() {
+    if (photoInputRef.current) {
+      photoInputRef.current.value = "";
+      photoInputRef.current.click();
+    }
+  }
+
+  function handlePhotoButtonClick() {
+    if (photoDataUrl) {
+      setIsPhotoMenuOpen((current) => !current);
+      return;
+    }
+
+    openPhotoPicker();
+  }
+
+  function handleChangePhoto() {
+    setIsPhotoMenuOpen(false);
+    openPhotoPicker();
+  }
+
+  function handleRemovePhoto() {
+    setPhotoDataUrl("");
+    setPhotoStatus("idle");
+    setError("");
+    setIsPhotoMenuOpen(false);
+    if (photoInputRef.current) {
+      photoInputRef.current.value = "";
+    }
   }
 
   function updateParentField(parentId: string, field: "relation" | "name" | "phone", value: string) {
@@ -234,14 +267,52 @@ export function ChildDetailModal({
         </div>
 
         <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={handleSubmit}>
-          <label className="block sm:col-span-2">
+          <div className="block sm:col-span-2">
             <span className="text-sm font-extrabold text-charcoal">사진</span>
             <div className="mt-2 flex items-center gap-3">
-              <ChildAvatar gender={gender} name={name} photoDataUrl={photoDataUrl} size="lg" />
+              <div className="relative shrink-0">
+                <button
+                  aria-expanded={photoDataUrl ? isPhotoMenuOpen : undefined}
+                  aria-label={photoDataUrl ? "사진 메뉴 열기" : "사진 선택"}
+                  className="relative rounded-full focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-blue-text"
+                  onClick={handlePhotoButtonClick}
+                  type="button"
+                >
+                  <ChildAvatar gender={gender} name={name} photoDataUrl={photoDataUrl} size="lg" />
+                  <span className="absolute bottom-0 right-0 inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-sky-blue text-white">
+                    {photoDataUrl ? (
+                      <Pencil aria-hidden="true" className="h-3.5 w-3.5" />
+                    ) : (
+                      <Camera aria-hidden="true" className="h-3.5 w-3.5" />
+                    )}
+                  </span>
+                </button>
+                {photoDataUrl && isPhotoMenuOpen ? (
+                  <div className="absolute left-0 top-[calc(100%+8px)] z-10 w-32 overflow-hidden rounded-[12px] border-2 border-cloud-gray bg-white">
+                    <button
+                      className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm font-extrabold text-almost-black"
+                      onClick={handleChangePhoto}
+                      type="button"
+                    >
+                      <Pencil aria-hidden="true" className="h-4 w-4 text-sky-blue-text" />
+                      수정
+                    </button>
+                    <button
+                      className="flex min-h-11 w-full items-center gap-2 border-t-2 border-cloud-gray px-3 text-left text-sm font-extrabold text-[#b3261e]"
+                      onClick={handleRemovePhoto}
+                      type="button"
+                    >
+                      <Trash2 aria-hidden="true" className="h-4 w-4" />
+                      삭제
+                    </button>
+                  </div>
+                ) : null}
+              </div>
               <input
                 accept="image/*"
-                className="min-h-12 w-0 min-w-0 flex-1 rounded-[12px] border-2 border-cloud-gray px-3 py-2 text-base font-bold text-almost-black"
+                className="hidden"
                 onChange={handlePhotoChange}
+                ref={photoInputRef}
                 type="file"
               />
             </div>
@@ -250,12 +321,7 @@ export function ChildDetailModal({
                 사진 크기를 줄이는 중입니다.
               </p>
             ) : null}
-            {photoStatus === "compressed" ? (
-              <p className="mt-2 rounded-[12px] bg-duo-green-light p-3 text-sm font-bold text-duo-green-dark" role="status">
-                큰 사진을 자동으로 줄였습니다.
-              </p>
-            ) : null}
-          </label>
+          </div>
 
           <label className="block">
             <span className="text-sm font-extrabold text-charcoal">이름</span>

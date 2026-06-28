@@ -998,3 +998,84 @@
 - 남은 문제:
   - Playwright E2E 전체 스위트는 원격 Supabase 상태 초기화 위험 때문에 실행하지 않았다.
   - 기존 `goal.md`에는 이전 작업들의 미실행 E2E 항목이 남아 있어 파일은 삭제하지 않는다.
+
+---
+
+# Goal Addendum
+
+## 작업
+- 한 문장으로 설명: 선생님 카드와 아이/선생님 사진 입력 UI를 더 직접적인 카드 클릭·사진 메뉴 방식으로 바꾼다.
+- 사용자에게 주는 가치: 모바일에서 불필요한 수정 버튼과 파일 입력 문구 없이 카드와 사진을 바로 눌러 상세 확인과 사진 수정/삭제를 할 수 있다.
+
+## 범위
+### 포함
+- 선생님 목록 카드의 `수정` 버튼 제거
+- 선생님 카드 클릭 시 상세/수정 모달 열기
+- 아이 상세/등록 모달의 visible file input 제거
+- 선생님 등록/수정 모달의 visible file input 제거
+- 사진이 있을 때 사진 클릭으로 수정/삭제 메뉴 표시
+- 큰 사진 자동 축소 완료 안내 제거
+- 관련 문서/진행 기록 갱신
+
+### 제외
+- 사진 저장 방식 변경
+- Supabase Storage 도입
+- DB schema 변경
+- 운영 데이터 수정
+
+## 현재 상태
+- 관련 화면/경로: `/teachers`, `/children`, `/attendance` 아이 상세 모달
+- 관련 테이블/마이그레이션: `children.photo_data_url`, `teachers.photo_data_url`, migration 변경 없음
+- 관련 테스트: typecheck, ESLint, unit, DB, build, 모바일 viewport 확인
+
+## 가정과 결정 기록
+- [2026-06-27] 사진이 없는 상태에서는 사진 영역 클릭이 바로 사진 선택을 연다.
+- [2026-06-27] 사진이 있는 상태에서는 사진 영역 클릭이 메뉴를 열고, 메뉴의 `수정`은 사진 선택, `삭제`는 현재 모달 입력값에서 사진을 비운다. 최종 저장은 기존 저장 버튼으로 확정한다.
+- [2026-06-27] 자동 축소 완료 안내는 표시하지 않되, 처리 중 안내와 오류 안내는 유지한다.
+
+## 완료 조건
+- [x] 선생님 카드의 `수정` 버튼이 사라지고 카드 클릭으로 상세 모달이 열린다.
+- [x] 아이 상세/등록 사진 영역에 visible `Choose file` 문구가 보이지 않는다.
+- [x] 선생님 등록/수정 사진 영역에 visible `Choose file` 문구가 보이지 않는다.
+- [x] 사진이 있을 때 사진 클릭으로 수정/삭제 메뉴가 열린다.
+- [x] 사진 삭제 후 저장하면 사진이 비워지는 기존 저장 흐름을 탄다.
+- [x] 큰 사진 자동 축소 완료 안내가 더 이상 보이지 않는다.
+- [x] 모바일 기준 화면에서 사진 입력 UI가 가로 스크롤을 만들지 않는다.
+- [x] 관련 테스트와 build가 통과한다.
+- [x] 진행 결과가 `docs/PROGRESS.md`에 기록된다.
+
+## 테스트 계획
+- 정적 검사: `pnpm run typecheck`, ESLint
+- 단위 테스트: 기존 Vitest
+- 데이터베이스/RLS 테스트: migration 변경 없음 확인
+- E2E 테스트: 원격 Supabase 상태 변경 위험 때문에 전체 스위트는 실행하지 않고, 필요 시 Supabase REST를 mock하는 임시 Playwright 확인만 수행
+- 빌드: `pnpm run build`
+- 수동 확인 화면 크기: 390x844 모바일 viewport에서 `/children`, `/teachers` 모달 overflow와 visible file input 문구 확인
+
+## 위험과 되돌리기
+- 위험: 사진 클릭 메뉴가 숨은 file input보다 한 단계 늘어날 수 있다.
+- 롤백 방법: 사진 영역 메뉴와 카드 클릭 변경을 되돌리고 기존 file input과 수정 버튼을 복구한다.
+
+## 검증 결과
+- 실행한 명령:
+  - `pnpm run typecheck`
+  - `pnpm run lint`
+  - `.\node_modules\.bin\eslint.cmd .`
+  - `.\node_modules\.bin\vitest.cmd run`
+  - `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`
+  - `pnpm run build`
+  - 임시 Playwright 스크립트 `node tmp\check-photo-card-ui.mjs`
+- 결과:
+  - 선생님 목록 카드의 `수정` 버튼 제거, 카드 자체 클릭으로 모달 진입하도록 변경.
+  - 아이/선생님 사진 input은 숨김 처리하고 사진 영역 버튼으로 선택 또는 메뉴 진입.
+  - 사진이 있을 때 메뉴의 `수정`은 사진 선택을 열고, `삭제`는 모달 입력값의 `photoDataUrl`을 비운다. 최종 반영은 기존 저장 버튼으로 수행.
+  - 큰 사진 자동 축소 완료 안내 문구 제거. 처리 중/오류 상태는 유지.
+  - `pnpm run typecheck`: 통과.
+  - `pnpm run lint`: PowerShell `pnpm.exe` 접근 거부로 실패. 동일 lint 실행 파일인 `.\node_modules\.bin\eslint.cmd .`는 통과.
+  - Vitest: 4 files, 18 tests 통과.
+  - DB Vitest: 1 file, 1 test 통과.
+  - `pnpm run build`: 통과.
+  - 390×844 모바일 viewport 확인: `/teachers`, `/children` 모두 file input `display = none`, `documentScrollWidth = 390`, 사진 메뉴 `수정`/`삭제` 표시.
+- 남은 문제:
+  - Playwright E2E 전체 스위트는 원격 Supabase 상태 초기화 위험 때문에 실행하지 않았다.
+  - 기존 `goal.md`에는 이전 작업들의 미실행 E2E 항목이 남아 있어 파일은 삭제하지 않는다.

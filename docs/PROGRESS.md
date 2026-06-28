@@ -1,5 +1,28 @@
 # Progress
 
+## 2026-06-27 선생님 카드 클릭과 사진 메뉴 UI 정리
+
+### 완료
+- `/teachers` 선생님 목록 카드의 `수정` 버튼을 제거하고, 카드 전체를 클릭하면 상세/수정 모달이 열리도록 변경했다.
+- 아이 상세/등록 모달과 선생님 등록/수정 모달에서 native file input의 `Choose file` 문구가 보이지 않도록 숨김 input으로 전환했다.
+- 사진이 없을 때는 사진 영역 클릭으로 바로 사진 선택을 열고, 사진이 있을 때는 사진 영역 클릭으로 `수정`/`삭제` 메뉴를 표시한다.
+- 사진 삭제는 모달 안의 현재 입력값에서 사진을 비우며, 기존처럼 저장 버튼을 눌러 최종 반영한다.
+- 큰 사진 자동 축소 완료 안내 문구를 제거하고, 처리 중 안내와 오류 안내만 유지했다.
+- E2E 기대값을 선생님 카드 클릭 접근성 이름(`상세정보 열기`)에 맞게 갱신했다.
+- MVP 설계서에 사진 영역 클릭/사진 메뉴 방식과 선생님 카드 클릭 진입을 반영했다.
+
+### 검증
+- `pnpm run typecheck`: 통과
+- `pnpm run lint`: PowerShell `pnpm.exe` 접근 거부로 실패
+- `.\node_modules\.bin\eslint.cmd .`: 통과
+- `.\node_modules\.bin\vitest.cmd run`: 4 files, 18 tests 통과
+- `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`: 1 file, 1 test 통과
+- `pnpm run build`: 통과
+- 임시 Playwright 스크립트로 Supabase REST 요청을 mock하고 production 서버를 띄워 390×844 모바일 viewport 확인:
+  - `/teachers`: 선생님 카드 클릭으로 모달 열림, 사진 메뉴의 `수정`/`삭제` 표시, file input `display = none`, `documentScrollWidth = 390`
+  - `/children`: 아이 카드 클릭으로 모달 열림, 사진 메뉴의 `수정`/`삭제` 표시, file input `display = none`, `documentScrollWidth = 390`
+- Playwright E2E 전체 스위트는 원격 Supabase 상태 초기화 위험 때문에 실행하지 않았다.
+
 ## 2026-06-27 휴대폰 사진 자동 축소 저장
 
 ### 완료
