@@ -266,8 +266,8 @@ export function ChildDetailModal({
           </button>
         </div>
 
-        <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={handleSubmit}>
-          <div className="block sm:col-span-2">
+        <form className="mt-4 grid grid-cols-2 gap-3" onSubmit={handleSubmit}>
+          <div className="col-span-2 block">
             <span className="text-sm font-extrabold text-charcoal">사진</span>
             <div className="mt-2 flex items-center gap-3">
               <div className="relative shrink-0">
@@ -323,19 +323,19 @@ export function ChildDetailModal({
             ) : null}
           </div>
 
-          <label className="block">
+          <label className="block min-w-0">
             <span className="text-sm font-extrabold text-charcoal">이름</span>
             <input
-              className="mt-2 min-h-12 w-full rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
+              className="mt-2 min-h-12 w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
               onChange={(event) => setName(event.target.value)}
               value={name}
             />
           </label>
 
-          <label className="block">
+          <label className="block min-w-0">
             <span className="text-sm font-extrabold text-charcoal">성별</span>
             <select
-              className="mt-2 min-h-12 w-full rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
+              className="mt-2 min-h-12 w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
               onChange={(event) => setGender(event.target.value as ChildGender)}
               value={gender}
             >
@@ -345,30 +345,30 @@ export function ChildDetailModal({
             </select>
           </label>
 
-          <label className="block">
+          <label className="block min-w-0">
             <span className="text-sm font-extrabold text-charcoal">생년월일</span>
             <input
-              className="mt-2 min-h-12 w-full rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
+              className="mt-2 min-h-12 w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
               onChange={(event) => setBirthDate(event.target.value)}
               type="date"
               value={birthDate}
             />
           </label>
 
-          <label className="block">
+          <label className="block min-w-0">
             <span className="text-sm font-extrabold text-charcoal">등록일</span>
             <input
-              className="mt-2 min-h-12 w-full rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
+              className="mt-2 min-h-12 w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
               onChange={(event) => setRegisteredAt(event.target.value)}
               type="date"
               value={registeredAt}
             />
           </label>
 
-          <label className="block sm:col-span-2">
+          <label className="col-span-2 block min-w-0">
             <span className="text-sm font-extrabold text-charcoal">반</span>
             <select
-              className="mt-2 min-h-12 w-full rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
+              className="mt-2 min-h-12 w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
               onChange={(event) => setClassId(event.target.value)}
               value={selectedClassId}
             >
@@ -381,15 +381,15 @@ export function ChildDetailModal({
             </select>
           </label>
 
-          <fieldset className="rounded-[12px] border-2 border-cloud-gray p-3 sm:col-span-2">
+          <fieldset className="col-span-2 rounded-[12px] border-2 border-cloud-gray p-3">
             <legend className="px-1 text-sm font-extrabold text-charcoal">부모님</legend>
             <div className="grid gap-3">
               {parents.map((parent, index) => (
-                <div className="grid gap-2 sm:grid-cols-[128px_1fr_1fr_auto]" key={parent.id}>
-                  <label className="block">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-[128px_1fr_1fr_auto]" key={parent.id}>
+                  <label className="block min-w-0">
                     <span className="text-sm font-extrabold text-charcoal">관계</span>
                     <select
-                      className="mt-2 min-h-12 w-full rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
+                      className="mt-2 min-h-12 w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
                       onChange={(event) =>
                         updateParentField(parent.id, "relation", event.target.value as ParentRelation)
                       }
@@ -400,18 +400,18 @@ export function ChildDetailModal({
                       <option value="other">기타</option>
                     </select>
                   </label>
-                  <label className="block">
+                  <label className="block min-w-0">
                     <span className="text-sm font-extrabold text-charcoal">성함</span>
                     <input
-                      className="mt-2 min-h-12 w-full rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
+                      className="mt-2 min-h-12 w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
                       onChange={(event) => updateParentField(parent.id, "name", event.target.value)}
                       value={parent.name}
                     />
                   </label>
-                  <label className="block">
+                  <label className="block min-w-0">
                     <span className="text-sm font-extrabold text-charcoal">전화번호</span>
                     <input
-                      className="mt-2 min-h-12 w-full rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
+                      className="mt-2 min-h-12 w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
                       onChange={(event) => updateParentField(parent.id, "phone", event.target.value)}
                       type="tel"
                       value={parent.phone}
@@ -439,29 +439,29 @@ export function ChildDetailModal({
             </button>
           </fieldset>
 
-          <label className="block sm:col-span-2">
+          <label className="col-span-2 block min-w-0">
             <span className="text-sm font-extrabold text-charcoal">주소</span>
             <input
-              className="mt-2 min-h-12 w-full rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
+              className="mt-2 min-h-12 w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
               onChange={(event) => setAddress(event.target.value)}
               value={address}
             />
           </label>
 
-          <label className="block sm:col-span-2">
+          <label className="col-span-2 block min-w-0">
             <span className="text-sm font-extrabold text-charcoal">이메일</span>
             <input
-              className="mt-2 min-h-12 w-full rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
+              className="mt-2 min-h-12 w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
               onChange={(event) => setEmail(event.target.value)}
               type="email"
               value={email}
             />
           </label>
 
-          <label className="block sm:col-span-2">
+          <label className="col-span-2 block min-w-0">
             <span className="text-sm font-extrabold text-charcoal">특이사항</span>
             <textarea
-              className="mt-2 min-h-24 w-full resize-y rounded-[12px] border-2 border-cloud-gray p-3 text-base font-medium text-almost-black"
+              className="mt-2 min-h-24 w-full min-w-0 resize-y rounded-[12px] border-2 border-cloud-gray p-3 text-base font-medium text-almost-black"
               maxLength={500}
               onChange={(event) => setNotes(event.target.value)}
               value={notes}
@@ -469,12 +469,12 @@ export function ChildDetailModal({
           </label>
 
           {error ? (
-            <p className="rounded-[12px] bg-[#ffe8e6] p-3 text-sm font-bold text-[#b3261e] sm:col-span-2" role="alert">
+            <p className="col-span-2 rounded-[12px] bg-[#ffe8e6] p-3 text-sm font-bold text-[#b3261e]" role="alert">
               {error}
             </p>
           ) : null}
 
-          <div className="grid gap-2 sm:col-span-2 sm:grid-cols-2">
+          <div className="col-span-2 grid grid-cols-2 gap-2">
             <button
               className="min-h-12 rounded-[12px] border-2 border-cloud-gray px-4 text-base font-extrabold text-graphite"
               onClick={onClose}
@@ -489,7 +489,7 @@ export function ChildDetailModal({
 
           {child && onDelete ? (
             <button
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[12px] border-2 border-[#ffc3bd] bg-[#fff4f2] px-4 text-base font-extrabold text-[#b3261e] sm:col-span-2"
+              className="col-span-2 inline-flex min-h-12 items-center justify-center gap-2 rounded-[12px] border-2 border-[#ffc3bd] bg-[#fff4f2] px-4 text-base font-extrabold text-[#b3261e]"
               disabled={!isReady}
               onClick={handleDelete}
               type="button"

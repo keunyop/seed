@@ -36,7 +36,6 @@ export function DashboardClient() {
             </svg>
           </span>
           <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.053em] text-sky-blue-text">Sunday School</p>
             <h1 className="font-ui-latin text-4xl font-bold text-almost-black">Seed</h1>
           </div>
         </header>

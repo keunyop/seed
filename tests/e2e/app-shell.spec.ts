@@ -73,7 +73,7 @@ async function expectNoAppStateLocalStorage(page: import("@playwright/test").Pag
 }
 
 async function waitForSaved(page: import("@playwright/test").Page) {
-  await expect(page.getByText("저장됨").first()).toBeVisible();
+  await page.waitForLoadState("networkidle");
 }
 
 function acceptNextConfirm(page: import("@playwright/test").Page) {
@@ -117,6 +117,7 @@ test("dashboard opens without login and fits the mobile viewport", async ({ page
 
   await expect(page.locator("main")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Seed" })).toBeVisible();
+  await expect(page.getByText("Sunday School", { exact: true })).toHaveCount(0);
   await expect(page.locator("a[href^='/attendance?classId=']")).toHaveCount(2);
   await expect(page.locator("nav")).toBeVisible();
   await expect(page.getByRole("heading", { name: "반 등록" })).toHaveCount(0);
@@ -262,6 +263,7 @@ test("Supabase-backed attendance flow supports teacher and class management", as
   await row.locator("button[aria-pressed]").nth(1).click();
   await expect(row.locator("button[aria-pressed]").nth(0)).toHaveAttribute("aria-pressed", "true");
   await expect(row.locator("button[aria-pressed]").nth(1)).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("input[type='checkbox']")).not.toBeChecked();
   await page.locator("input[type='checkbox']").check();
   await page.locator("main").locator("button").last().click();
   await waitForSaved(page);

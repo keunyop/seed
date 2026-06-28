@@ -5,7 +5,6 @@ import { useMemo, useState } from "react";
 import { ChildAvatar } from "@/components/domain/child-avatar";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
 import { ChildDetailModal } from "@/components/domain/child-detail-modal";
-import { SaveStatus } from "@/components/domain/save-status";
 import { useFamilyOpenStore } from "@/components/domain/use-family-open-store";
 import { PressableButton } from "@/components/ui/pressable-button";
 import { getNearestWeekdayDate } from "@/lib/dates/service-week";
@@ -57,7 +56,7 @@ function getToggleButtonClass(isPressed: boolean, tone: "present" | "qt") {
 }
 
 export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
-  const { store, saveState, isReady, saveAttendanceSession, updateChild, deleteChild } = useFamilyOpenStore();
+  const { store, isReady, saveAttendanceSession, updateChild, deleteChild } = useFamilyOpenStore();
   const [sessionDate, setSessionDate] = useState(() => getNearestWeekdayDate(getLocalIsoDate(), 0));
   const [classId, setClassId] = useState(initialClassId ?? ALL_CLASSES_VALUE);
   const [selectedChild, setSelectedChild] = useState<FamilyChild | null>(null);
@@ -71,15 +70,16 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
   );
   const classNameById = useMemo(() => new Map(store.classes.map((item) => [item.id, item.name])), [store.classes]);
   const session = useMemo(() => getSession(store, sessionDate), [sessionDate, store]);
+  const savedShareWithPastor = store.attendanceByDate[sessionDate]?.shareWithPastor ?? false;
   const sessionKey = `${sessionDate}:${session.savedAt}`;
   const freshDraft = useMemo<AttendanceDraft>(() => ({
     sessionDate,
     sessionKey,
     records: session.records,
     note: session.note,
-    shareWithPastor: session.shareWithPastor ?? false,
+    shareWithPastor: savedShareWithPastor,
     isDirty: false,
-  }), [session.records, session.note, session.shareWithPastor, sessionDate, sessionKey]);
+  }), [session.records, session.note, savedShareWithPastor, sessionDate, sessionKey]);
   const [draftState, setDraftState] = useState<AttendanceDraftState>(() => ({ key: sessionKey, draft: freshDraft }));
   const activeDraft = draftState.key === sessionKey ? draftState.draft : freshDraft;
 
@@ -135,14 +135,13 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
             <div>
               <h1 className="font-heading-ko text-3xl font-bold text-almost-black">출석 체크</h1>
             </div>
-            <SaveStatus state={saveState} />
           </div>
 
           <div className="mt-5 grid min-w-0 gap-3 sm:grid-cols-2">
             <label className="block min-w-0">
               <span className="text-sm font-extrabold text-charcoal">날짜</span>
               <input
-                className="mt-2 min-h-12 w-full max-w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
+                className="mt-2 min-h-12 w-full max-w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-2 text-sm font-bold text-almost-black sm:px-3 sm:text-base"
                 onChange={(event) => setSessionDate(event.target.value)}
                 type="date"
                 value={sessionDate}
@@ -166,7 +165,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
           </div>
         </header>
 
-        <div className="sticky bottom-[calc(76px+var(--safe-bottom))] z-10 mt-4 rounded-[12px] border-2 border-cloud-gray bg-white/95 p-2 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:p-0">
+        <div className="sticky bottom-[calc(76px+var(--safe-bottom))] z-10 mt-4 bg-white/95 py-2 backdrop-blur sm:static sm:bg-transparent sm:p-0">
           <div className="flex items-center gap-3">
             <p
               aria-live="polite"
@@ -218,7 +217,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
                             <h3 className="truncate text-lg font-extrabold text-almost-black">{child.name}</h3>
                             <button
                               aria-label={`${child.name} 상세정보`}
-                              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border-2 border-cloud-gray text-sky-blue-text"
+                              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sky-blue-text transition-colors hover:bg-sky-blue/10"
                               onClick={() => setSelectedChild(child)}
                               type="button"
                             >

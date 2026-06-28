@@ -1,5 +1,33 @@
 # Progress
 
+## 2026-06-27 상단 배지 제거와 모바일 입력 폭 정리
+
+### 완료
+- 홈 화면 헤더에서 `Sunday School` 보조 문구를 제거하고 `Seed`만 남겼다.
+- `/attendance`, `/children`, `/teachers`, `/settings` 페이지 상단의 `저장됨` 상태 배지를 제거했다.
+- `/attendance` 모바일 날짜 input에 좁은 화면용 padding/font-size와 전역 `input[type="date"]` 폭 제한을 적용해 카드 오른쪽 overflow를 막았다.
+- 모바일 출석 저장 영역의 카드 테두리와 radius를 제거해 웹 화면처럼 별도 카드로 보이지 않게 했다.
+- 출석 체크 아이 이름 옆 상세정보 info 버튼의 border를 제거하고 아이콘 버튼만 남겼다.
+- 저장되지 않은 새 출석 세션의 `전도사님 공유` 기본값이 unchecked임을 명시적으로 유지하도록 draft 값을 정리했다.
+- 아이 상세 모달과 선생님 상세 모달을 모바일에서도 2열 grid 기반으로 바꾸고, 긴 필드는 전체 폭을 쓰도록 조정했다.
+- E2E 기대값에서 상단 `저장됨` 대기 로직을 제거하고, `Sunday School` 미표시와 `전도사님 공유` 기본 unchecked 확인을 추가했다.
+- MVP 설계서에 상단 저장 배지 제거, 모바일 저장 영역 borderless 기준, 상세 모달 2열 기준을 반영했다.
+
+### 검증
+- `pnpm run typecheck`: 통과
+- `pnpm run lint`: PowerShell `pnpm.exe` 접근 거부로 실패
+- `.\node_modules\.bin\eslint.cmd .`: 통과
+- `.\node_modules\.bin\vitest.cmd run`: 4 files, 18 tests 통과
+- `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`: 1 file, 1 test 통과
+- `pnpm run build`: 통과
+- 임시 Playwright 스크립트로 Supabase REST 요청을 mock하고 production 서버를 띄워 390×844 모바일 viewport 확인:
+  - `/dashboard`: `Sunday School` 미표시, `documentScrollWidth = 390`
+  - `/attendance`: 상단 `저장됨` 미표시, 날짜 input `34..356`, 저장 영역 border/radius `0px`, info 버튼 border `0px`, `전도사님 공유` unchecked, `documentScrollWidth = 390`
+  - `/children` 상세 모달: 날짜 input 2개가 각각 `16..189`, `201..374`, 폭 173px로 동일, 2열 grid, `documentScrollWidth = 390`
+  - `/teachers` 상세 모달: 2열 grid, input/select viewport 내부, `documentScrollWidth = 390`
+  - `/settings`: 상단 `저장됨` 미표시, `documentScrollWidth = 390`
+- Playwright E2E 전체 스위트는 원격 Supabase 상태 초기화 위험 때문에 실행하지 않았다.
+
 ## 2026-06-27 선생님 카드 클릭과 사진 메뉴 UI 정리
 
 ### 완료

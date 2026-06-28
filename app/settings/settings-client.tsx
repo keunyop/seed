@@ -3,7 +3,6 @@
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { Pencil, Plus, Settings, Trash2, UsersRound, X } from "lucide-react";
-import { SaveStatus } from "@/components/domain/save-status";
 import { useFamilyOpenStore } from "@/components/domain/use-family-open-store";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
 import { PressableButton } from "@/components/ui/pressable-button";
@@ -154,7 +153,7 @@ function ClassDetailModal({ store, isReady, familyClass, onClose, onDelete, onSu
 }
 
 export function SettingsClient() {
-  const { store, saveState, isReady, addClass, updateClass, deleteClass } = useFamilyOpenStore();
+  const { store, isReady, addClass, updateClass, deleteClass } = useFamilyOpenStore();
   const [className, setClassName] = useState("");
   const [teacherId, setTeacherId] = useState("");
   const [selectedClass, setSelectedClass] = useState<FamilyClass | null>(null);
@@ -178,7 +177,6 @@ export function SettingsClient() {
         <header className="rounded-[12px] border-2 border-cloud-gray p-4 sm:p-6">
           <div className="flex items-start justify-between gap-3">
             <h1 className="font-heading-ko text-3xl font-bold text-almost-black">설정</h1>
-            <SaveStatus state={saveState} />
           </div>
         </header>
 

@@ -5,7 +5,6 @@ import { Baby, Plus, Search } from "lucide-react";
 import { ChildAvatar } from "@/components/domain/child-avatar";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
 import { ChildDetailModal } from "@/components/domain/child-detail-modal";
-import { SaveStatus } from "@/components/domain/save-status";
 import { useFamilyOpenStore } from "@/components/domain/use-family-open-store";
 import { PressableButton } from "@/components/ui/pressable-button";
 import { formatChildBirthDate, getClassLabel, sortChildrenForRoster } from "@/lib/family/stats";
@@ -37,7 +36,7 @@ function getParentNamesLabel(child: FamilyChild) {
 }
 
 export function ChildrenClient() {
-  const { store, saveState, isReady, addChild, updateChild, deleteChild } = useFamilyOpenStore();
+  const { store, isReady, addChild, updateChild, deleteChild } = useFamilyOpenStore();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedChild, setSelectedChild] = useState<FamilyChild | null>(null);
   const [filterClassId, setFilterClassId] = useState("all");
@@ -66,7 +65,6 @@ export function ChildrenClient() {
             <div>
               <h1 className="font-heading-ko text-3xl font-bold text-almost-black">아이들</h1>
             </div>
-            <SaveStatus state={saveState} />
           </div>
           <div className="mt-4">
             <PressableButton className="w-full sm:w-auto" disabled={!isReady} onClick={() => setIsAddOpen(true)}>

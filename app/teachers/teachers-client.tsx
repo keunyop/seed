@@ -3,7 +3,6 @@
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Camera, Pencil, Plus, Trash2, UserRoundCog, X } from "lucide-react";
-import { SaveStatus } from "@/components/domain/save-status";
 import { useFamilyOpenStore } from "@/components/domain/use-family-open-store";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
 import { PressableButton } from "@/components/ui/pressable-button";
@@ -225,8 +224,8 @@ function TeacherDetailModal({ store, isReady, mode, teacher, onClose, onDelete, 
           </button>
         </div>
 
-        <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={handleSubmit}>
-          <div className="block sm:col-span-2">
+        <form className="mt-4 grid grid-cols-2 gap-3" onSubmit={handleSubmit}>
+          <div className="col-span-2 block">
             <span className="text-sm font-extrabold text-charcoal">사진</span>
             <div className="mt-2 flex items-center gap-3">
               <div className="relative shrink-0">
@@ -289,20 +288,20 @@ function TeacherDetailModal({ store, isReady, mode, teacher, onClose, onDelete, 
             ) : null}
           </div>
 
-          <label className="block">
+          <label className="col-span-2 block min-w-0 sm:col-span-1">
             <span className="text-sm font-extrabold text-charcoal">이름</span>
             <input
-              className="mt-2 min-h-12 w-full rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
+              className="mt-2 min-h-12 w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
               onChange={(event) => setName(event.target.value)}
               value={name}
             />
           </label>
 
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block">
+          <div className="col-span-2 grid grid-cols-2 gap-3 sm:col-span-1">
+            <label className="block min-w-0">
               <span className="text-sm font-extrabold text-charcoal">생일 월</span>
               <select
-                className="mt-2 min-h-12 w-full rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
+                className="mt-2 min-h-12 w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
                 onChange={(event) => handleBirthMonthChange(event.target.value)}
                 value={birthMonth}
               >
@@ -313,10 +312,10 @@ function TeacherDetailModal({ store, isReady, mode, teacher, onClose, onDelete, 
                 ))}
               </select>
             </label>
-            <label className="block">
+            <label className="block min-w-0">
               <span className="text-sm font-extrabold text-charcoal">생일 일</span>
               <select
-                className="mt-2 min-h-12 w-full rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
+                className="mt-2 min-h-12 w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
                 onChange={(event) => setBirthDay(Number(event.target.value))}
                 value={birthDay}
               >
@@ -329,10 +328,10 @@ function TeacherDetailModal({ store, isReady, mode, teacher, onClose, onDelete, 
             </label>
           </div>
 
-          <label className="block">
+          <label className="block min-w-0">
             <span className="text-sm font-extrabold text-charcoal">반</span>
             <select
-              className="mt-2 min-h-12 w-full rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
+              className="mt-2 min-h-12 w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
               onChange={(event) => setClassId(event.target.value)}
               value={selectedClassId}
             >
@@ -345,10 +344,10 @@ function TeacherDetailModal({ store, isReady, mode, teacher, onClose, onDelete, 
             </select>
           </label>
 
-          <label className="block">
+          <label className="block min-w-0">
             <span className="text-sm font-extrabold text-charcoal">전화번호</span>
             <input
-              className="mt-2 min-h-12 w-full rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
+              className="mt-2 min-h-12 w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
               onChange={(event) => setPhone(event.target.value)}
               type="tel"
               value={phone}
@@ -356,12 +355,12 @@ function TeacherDetailModal({ store, isReady, mode, teacher, onClose, onDelete, 
           </label>
 
           {error ? (
-            <p className="rounded-[12px] bg-[#ffe8e6] p-3 text-sm font-bold text-[#b3261e] sm:col-span-2" role="alert">
+            <p className="col-span-2 rounded-[12px] bg-[#ffe8e6] p-3 text-sm font-bold text-[#b3261e]" role="alert">
               {error}
             </p>
           ) : null}
 
-          <div className="grid gap-2 sm:col-span-2 sm:grid-cols-2">
+          <div className="col-span-2 grid grid-cols-2 gap-2">
             <button
               className="min-h-12 rounded-[12px] border-2 border-cloud-gray px-4 text-base font-extrabold text-graphite"
               onClick={onClose}
@@ -376,7 +375,7 @@ function TeacherDetailModal({ store, isReady, mode, teacher, onClose, onDelete, 
 
           {teacher && onDelete ? (
             <button
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[12px] border-2 border-[#ffc3bd] bg-[#fff4f2] px-4 text-base font-extrabold text-[#b3261e] sm:col-span-2"
+              className="col-span-2 inline-flex min-h-12 items-center justify-center gap-2 rounded-[12px] border-2 border-[#ffc3bd] bg-[#fff4f2] px-4 text-base font-extrabold text-[#b3261e]"
               disabled={!isReady}
               onClick={handleDelete}
               type="button"
@@ -392,7 +391,7 @@ function TeacherDetailModal({ store, isReady, mode, teacher, onClose, onDelete, 
 }
 
 export function TeachersClient() {
-  const { store, saveState, isReady, addTeacher, updateTeacher, deleteTeacher } = useFamilyOpenStore();
+  const { store, isReady, addTeacher, updateTeacher, deleteTeacher } = useFamilyOpenStore();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState<FamilyTeacher | null>(null);
   const activeTeachers = store.teachers.filter((teacher) => teacher.isActive);
@@ -403,7 +402,6 @@ export function TeachersClient() {
         <header className="rounded-[12px] border-2 border-cloud-gray p-4 sm:p-6">
           <div className="flex items-start justify-between gap-3">
             <h1 className="font-heading-ko text-3xl font-bold text-almost-black">선생님</h1>
-            <SaveStatus state={saveState} />
           </div>
           <div className="mt-4">
             <PressableButton className="w-full sm:w-auto" disabled={!isReady} onClick={() => setIsAddOpen(true)}>
