@@ -920,3 +920,81 @@
 - 남은 문제:
   - Playwright E2E 전체 스위트는 원격 Supabase 상태 초기화 위험 때문에 실행하지 않았다.
   - 이 변경은 아직 운영 배포에 반영되지 않았으므로 재배포가 필요하다.
+
+---
+
+# Goal Addendum
+
+## 작업
+- 한 문장으로 설명: 아이와 선생님 사진 선택 시 500KB를 넘는 휴대폰 사진을 브라우저에서 자동으로 줄여 저장한다.
+- 사용자에게 주는 가치: 교사가 휴대폰으로 찍은 사진을 별도 편집 없이 바로 등록할 수 있다.
+
+## 범위
+### 포함
+- 아이 상세/등록 모달 사진 선택 자동 축소
+- 선생님 등록/수정 모달 사진 선택 자동 축소
+- 저장되는 Data URL 크기를 500KB 이하로 제한
+- 사진 처리 중/자동 축소 완료/오류 상태 표시
+- 관련 단위 테스트, 설계 문서, 진행 기록 갱신
+
+### 제외
+- Supabase Storage 또는 외부 파일 저장 전환
+- DB schema 변경
+- 기존 저장 사진 일괄 재압축
+- Auth/RLS 또는 공유 코드 권한 변경
+
+## 현재 상태
+- 관련 화면/경로: `/children`, `/attendance` 아이 상세 모달, `/teachers` 선생님 모달
+- 관련 테이블/마이그레이션: `children.photo_data_url`, `teachers.photo_data_url`, migration 변경 없음
+- 관련 테스트: photo helper unit, 기존 family stats unit, DB migration test, typecheck, ESLint, build
+
+## 가정과 결정 기록
+- [2026-06-27] 사진 저장 방식은 현재처럼 Data URL 텍스트를 유지한다. Storage 전환은 별도 제품 결정이 필요하다.
+- [2026-06-27] 큰 사진은 프로필용 미리보기 품질을 우선해 긴 변 1024px 이하 JPEG로 시작하고, 500KB 이하가 될 때까지 품질과 크기를 단계적으로 낮춘다.
+- [2026-06-27] 브라우저가 디코딩할 수 없는 이미지 형식은 자동 축소할 수 없으므로 JPG/PNG 등 일반 이미지 재선택 안내를 표시한다.
+
+## 완료 조건
+- [x] 500KB 초과 이미지 파일도 자동 축소 후 아이 사진으로 저장할 수 있다.
+- [x] 500KB 초과 이미지 파일도 자동 축소 후 선생님 사진으로 저장할 수 있다.
+- [x] 이미지가 아니거나 축소 후에도 제한을 넘으면 오류 메시지가 보인다.
+- [x] 사진 처리 중 중복 제출을 막고 상태가 표시된다.
+- [x] 모바일 기준 화면에서 사진 입력 UI가 가로 스크롤을 만들지 않는다.
+- [x] 관련 테스트와 build가 통과한다.
+- [x] 문서와 진행 기록이 현재 코드와 일치한다.
+
+## 테스트 계획
+- 정적 검사: `pnpm run typecheck`, ESLint
+- 단위 테스트: 사진 Data URL 크기 계산과 축소 계획 helper
+- 데이터베이스/RLS 테스트: migration 변경 없음 확인
+- E2E 테스트: 원격 Supabase 상태 변경 위험이 있으므로 이번 작업에서는 기본적으로 실행하지 않고 사유를 기록한다.
+- 빌드: `pnpm run build`
+- 수동 확인 화면 크기: 가능하면 390x844 모바일 viewport에서 사진 입력 UI overflow 확인
+
+## 위험과 되돌리기
+- 위험: JPEG 변환으로 투명 PNG나 애니메이션 GIF의 원본 특성이 사라질 수 있다.
+- 위험: 매우 특수한 이미지 형식은 브라우저 canvas에서 디코딩하지 못할 수 있다.
+- 롤백 방법: photo helper와 두 모달의 사진 처리 변경을 되돌리면 기존 500KB 파일 선택 제한으로 복귀한다.
+
+## 검증 결과
+- 실행한 명령:
+  - `pnpm run typecheck`
+  - `pnpm run lint`
+  - `.\node_modules\.bin\eslint.cmd .`
+  - `.\node_modules\.bin\vitest.cmd run`
+  - `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`
+  - `pnpm run build`
+  - 임시 Playwright 스크립트 `node tmp\check-photo-ui.mjs`
+- 결과:
+  - `preparePhotoDataUrl` helper 추가: 작은 사진은 기존 Data URL로 유지하고, 큰 사진은 canvas에서 JPEG로 축소해 500KB 이하 Data URL만 반환한다.
+  - 아이 상세/등록 모달과 선생님 등록/수정 모달이 helper를 사용하도록 변경했다.
+  - 사진 처리 중에는 저장 버튼이 비활성화되고, 처리 중/자동 축소 완료 메시지가 표시된다.
+  - 비이미지 파일은 단위 테스트로 오류 메시지를 확인했다.
+  - `pnpm run typecheck`: 통과
+  - `pnpm run lint`: PowerShell `pnpm.exe` 접근 거부로 실패. 동일 lint 실행 파일인 `.\node_modules\.bin\eslint.cmd .`는 통과.
+  - Vitest: 4 files, 18 tests 통과.
+  - DB Vitest: 1 file, 1 test 통과.
+  - `pnpm run build`: 통과.
+  - 390×844 모바일 viewport 확인: `/children` 모달과 `/teachers` 모달 모두 `documentScrollWidth = 390`, `innerWidth = 390`, 사진 input `92..374`, overflow 없음.
+- 남은 문제:
+  - Playwright E2E 전체 스위트는 원격 Supabase 상태 초기화 위험 때문에 실행하지 않았다.
+  - 기존 `goal.md`에는 이전 작업들의 미실행 E2E 항목이 남아 있어 파일은 삭제하지 않는다.

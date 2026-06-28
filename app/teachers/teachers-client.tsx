@@ -1,12 +1,13 @@
 "use client";
 
 import type { ChangeEvent, FormEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Camera, Pencil, Plus, Trash2, UserRoundCog, X } from "lucide-react";
 import { SaveStatus } from "@/components/domain/save-status";
 import { useFamilyOpenStore } from "@/components/domain/use-family-open-store";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
 import { PressableButton } from "@/components/ui/pressable-button";
+import { preparePhotoDataUrl } from "@/lib/family/photo-data-url";
 import { formatTeacherBirthDate, getClassLabel, parseBirthDateParts } from "@/lib/family/stats";
 import type { FamilyOpenStore, FamilyTeacher } from "@/lib/family/types";
 
@@ -74,10 +75,13 @@ function TeacherDetailModal({ store, isReady, mode, teacher, onClose, onDelete, 
   const [classId, setClassId] = useState(initialClassId);
   const [phone, setPhone] = useState(teacher?.phone ?? "");
   const [error, setError] = useState("");
+  const [photoStatus, setPhotoStatus] = useState<"idle" | "processing" | "compressed">("idle");
+  const photoRequestIdRef = useRef(0);
   const selectedClassId = store.classes.some((item) => item.id === classId) ? classId : "";
   const dayLimit = getMonthDayLimit(birthMonth);
   const dayOptions = Array.from({ length: dayLimit }, (_, index) => index + 1);
   const title = mode === "add" ? "선생님 등록" : `${teacher?.name ?? "선생님"} 수정`;
+  const isPhotoProcessing = photoStatus === "processing";
 
   useEffect(() => {
     const originalOverflow = document.body.style.overflow;
@@ -103,31 +107,34 @@ function TeacherDetailModal({ store, isReady, mode, teacher, onClose, onDelete, 
     setBirthDay((current) => Math.min(current, nextDayLimit));
   }
 
-  function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+  async function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.target;
+    const file = input.files?.[0];
+    const requestId = photoRequestIdRef.current + 1;
+    photoRequestIdRef.current = requestId;
     setError("");
+    setPhotoStatus("idle");
 
     if (!file) {
       setPhotoDataUrl("");
       return;
     }
 
-    if (!file.type.startsWith("image/")) {
-      setError("이미지 파일만 선택해 주세요.");
-      event.target.value = "";
+    setPhotoStatus("processing");
+    const result = await preparePhotoDataUrl(file);
+    if (photoRequestIdRef.current !== requestId) {
       return;
     }
 
-    if (file.size > 500_000) {
-      setError("사진은 500KB 이하로 선택해 주세요.");
-      event.target.value = "";
+    if (!result.ok) {
+      setPhotoStatus("idle");
+      setError(result.message);
+      input.value = "";
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => setPhotoDataUrl(String(reader.result ?? ""));
-    reader.onerror = () => setError("사진을 읽지 못했습니다. 다른 파일을 선택해 주세요.");
-    reader.readAsDataURL(file);
+    setPhotoDataUrl(result.dataUrl);
+    setPhotoStatus(result.wasCompressed ? "compressed" : "idle");
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -199,11 +206,21 @@ function TeacherDetailModal({ store, isReady, mode, teacher, onClose, onDelete, 
               </div>
               <input
                 accept="image/*"
-                className="min-h-12 w-full rounded-[12px] border-2 border-cloud-gray px-3 py-2 text-base font-bold text-almost-black"
+                className="min-h-12 w-0 min-w-0 flex-1 rounded-[12px] border-2 border-cloud-gray px-3 py-2 text-base font-bold text-almost-black"
                 onChange={handlePhotoChange}
                 type="file"
               />
             </div>
+            {isPhotoProcessing ? (
+              <p className="mt-2 rounded-[12px] bg-[#e8f7ff] p-3 text-sm font-bold text-sky-blue-text" role="status">
+                사진 크기를 줄이는 중입니다.
+              </p>
+            ) : null}
+            {photoStatus === "compressed" ? (
+              <p className="mt-2 rounded-[12px] bg-duo-green-light p-3 text-sm font-bold text-duo-green-dark" role="status">
+                큰 사진을 자동으로 줄였습니다.
+              </p>
+            ) : null}
           </label>
 
           <label className="block">
@@ -286,7 +303,7 @@ function TeacherDetailModal({ store, isReady, mode, teacher, onClose, onDelete, 
             >
               취소
             </button>
-            <PressableButton disabled={!isReady} type="submit">
+            <PressableButton disabled={!isReady || isPhotoProcessing} type="submit">
               선생님 저장
             </PressableButton>
           </div>

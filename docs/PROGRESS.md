@@ -1,5 +1,27 @@
 # Progress
 
+## 2026-06-27 휴대폰 사진 자동 축소 저장
+
+### 완료
+- 아이 상세/등록 모달에서 500KB를 넘는 사진을 바로 거절하지 않고 브라우저 canvas로 프로필용 JPEG Data URL로 자동 축소하도록 변경했다.
+- 선생님 등록/수정 모달에도 같은 자동 축소 흐름을 적용했다.
+- 저장되는 사진 Data URL은 500KB 이하로 제한하고, 축소할 수 없는 이미지에는 재선택 안내를 표시한다.
+- 사진 처리 중에는 저장 버튼을 비활성화하고, 처리 중/자동 축소 완료 상태 메시지를 표시한다.
+- 모바일 390px 모달에서 native file input이 카드 밖으로 밀리지 않도록 `w-0 min-w-0 flex-1`로 폭을 고정했다.
+- MVP 설계서와 README의 사진 정책을 "500KB 이하만 선택"에서 "큰 사진 자동 축소 후 500KB 이하 저장"으로 갱신했다.
+
+### 검증
+- `pnpm run typecheck`: 통과
+- `pnpm run lint`: PowerShell `pnpm.exe` 접근 거부로 실패
+- `.\node_modules\.bin\eslint.cmd .`: 통과
+- `.\node_modules\.bin\vitest.cmd run`: 4 files, 18 tests 통과
+- `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`: 1 file, 1 test 통과
+- `pnpm run build`: 통과
+- 임시 Playwright 스크립트로 Supabase REST 요청을 빈 배열로 가로채고 production 서버를 띄워 390×844 모바일 viewport 확인:
+  - `/children` 사진 모달: `documentScrollWidth = 390`, `innerWidth = 390`, 사진 input `92..374`, overflow 없음
+  - `/teachers` 사진 모달: `documentScrollWidth = 390`, `innerWidth = 390`, 사진 input `92..374`, overflow 없음
+- Playwright E2E 전체 스위트는 원격 Supabase 상태 초기화 위험 때문에 실행하지 않았다.
+
 ## 2026-06-27 출석 전체 정렬과 모바일 날짜 입력 폭 보정
 
 ### 완료
