@@ -52,6 +52,7 @@ function getToggleButtonClass(isPressed: boolean, tone: "present" | "qt") {
     "inline-flex min-h-12 items-center justify-center gap-1 rounded-[12px] border-2 px-3 text-sm font-extrabold transition-[background-color,border-color,box-shadow,transform,color] active:translate-y-[1px]",
     isPressed ? activeClass : "border-cloud-gray bg-[#f7f7f7] text-graphite",
     !isPressed && inactiveHoverClass,
+    "disabled:cursor-not-allowed disabled:opacity-60",
   );
 }
 
@@ -60,6 +61,8 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
   const [sessionDate, setSessionDate] = useState(() => getNearestWeekdayDate(getLocalIsoDate(), 0));
   const [classId, setClassId] = useState(initialClassId ?? ALL_CLASSES_VALUE);
   const [selectedChild, setSelectedChild] = useState<FamilyChild | null>(null);
+  const [isSavingAttendance, setIsSavingAttendance] = useState(false);
+  const [saveFeedback, setSaveFeedback] = useState<"idle" | "saved" | "error">("idle");
 
   const selectedClassValue =
     classId === ALL_CLASSES_VALUE || store.classes.some((item) => item.id === classId) ? classId : ALL_CLASSES_VALUE;
@@ -98,6 +101,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
   const notPresentCount = children.length - presentCount;
 
   function updateDraftRecord(childId: string, recipe: (record: AttendanceRecord) => AttendanceRecord) {
+    setSaveFeedback("idle");
     setActiveDraft((current) => ({
       ...current,
       records: {
@@ -122,10 +126,35 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
     }));
   }
 
-  function handleSaveAll() {
-    saveAttendanceSession(sessionDate, activeDraft.records, activeDraft.note, activeDraft.shareWithPastor);
-    setActiveDraft((current) => ({ ...current, isDirty: false }));
+  async function handleSaveAll() {
+    if (isSavingAttendance || !activeDraft.isDirty) {
+      return;
+    }
+
+    setIsSavingAttendance(true);
+    const result = await saveAttendanceSession(sessionDate, activeDraft.records, activeDraft.note, activeDraft.shareWithPastor);
+    setIsSavingAttendance(false);
+
+    if (result.ok) {
+      setActiveDraft((current) => ({ ...current, isDirty: false }));
+      setSaveFeedback("saved");
+      return;
+    }
+
+    setSaveFeedback("error");
   }
+
+  const saveStatusMessage = !isReady
+    ? "출석 데이터를 불러오는 중"
+    : isSavingAttendance
+      ? "저장 중입니다"
+      : saveFeedback === "error"
+        ? "저장하지 못했습니다. 변경 내용은 남아 있습니다."
+        : activeDraft.isDirty
+          ? "변경 있음"
+          : saveFeedback === "saved"
+            ? "저장됨"
+            : "변경 없음";
 
   return (
     <main className="min-h-dvh bg-white pb-[calc(128px+var(--safe-bottom))]">
@@ -142,7 +171,11 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
               <span className="text-sm font-extrabold text-charcoal">날짜</span>
               <input
                 className="mt-2 min-h-12 w-full max-w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-2 text-sm font-bold text-almost-black sm:px-3 sm:text-base"
-                onChange={(event) => setSessionDate(event.target.value)}
+                disabled={isSavingAttendance}
+                onChange={(event) => {
+                  setSaveFeedback("idle");
+                  setSessionDate(event.target.value);
+                }}
                 type="date"
                 value={sessionDate}
               />
@@ -151,7 +184,11 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
               <span className="text-sm font-extrabold text-charcoal">반</span>
               <select
                 className="mt-2 min-h-12 w-full max-w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
-                onChange={(event) => setClassId(event.target.value)}
+                disabled={isSavingAttendance}
+                onChange={(event) => {
+                  setSaveFeedback("idle");
+                  setClassId(event.target.value);
+                }}
                 value={selectedClassValue}
               >
                 <option value={ALL_CLASSES_VALUE}>전체</option>
@@ -171,17 +208,22 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
               aria-live="polite"
               className={cn(
                 "min-w-0 flex-1 text-sm font-extrabold",
-                activeDraft.isDirty ? "text-sky-blue-text" : "text-graphite",
+                saveFeedback === "error"
+                  ? "text-bubblegum-pink"
+                  : activeDraft.isDirty || isSavingAttendance
+                    ? "text-sky-blue-text"
+                    : "text-graphite",
               )}
             >
-              {activeDraft.isDirty ? "변경 있음" : "변경 없음"}
+              {saveStatusMessage}
             </p>
             <PressableButton
+              aria-busy={isSavingAttendance}
               className="min-w-28 px-4 sm:min-w-36"
-              disabled={!isReady || !activeDraft.isDirty}
+              disabled={!isReady || !activeDraft.isDirty || isSavingAttendance}
               onClick={handleSaveAll}
             >
-              저장
+              {isSavingAttendance ? "저장 중" : "저장"}
             </PressableButton>
           </div>
         </div>
@@ -235,6 +277,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
                         <button
                           aria-pressed={record.status === "present"}
                           className={getToggleButtonClass(record.status === "present", "present")}
+                          disabled={isSavingAttendance}
                           onClick={() => toggleDraftPresent(child.id)}
                           type="button"
                         >
@@ -244,6 +287,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
                         <button
                           aria-pressed={record.qtCompleted}
                           className={getToggleButtonClass(record.qtCompleted, "qt")}
+                          disabled={isSavingAttendance}
                           onClick={() => toggleDraftQt(child.id)}
                           type="button"
                         >
@@ -265,9 +309,11 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
               <input
                 checked={activeDraft.shareWithPastor}
                 className="h-5 w-5 accent-duo-green"
-                onChange={(event) =>
-                  setActiveDraft((current) => ({ ...current, shareWithPastor: event.target.checked, isDirty: true }))
-                }
+                disabled={isSavingAttendance}
+                onChange={(event) => {
+                  setSaveFeedback("idle");
+                  setActiveDraft((current) => ({ ...current, shareWithPastor: event.target.checked, isDirty: true }));
+                }}
                 type="checkbox"
               />
               전도사님 공유
@@ -277,8 +323,10 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
             <span className="sr-only">이번 주 메모 내용</span>
             <textarea
               className="min-h-28 w-full resize-y rounded-[12px] border-2 border-cloud-gray p-3 text-base font-medium text-almost-black"
+              disabled={isSavingAttendance}
               maxLength={500}
               onChange={(event) => {
+                setSaveFeedback("idle");
                 setActiveDraft((current) => ({ ...current, note: event.target.value, isDirty: true }));
               }}
               value={activeDraft.note}

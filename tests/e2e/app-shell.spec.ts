@@ -265,7 +265,7 @@ test("Supabase-backed attendance flow supports teacher and class management", as
   await expect(row.locator("button[aria-pressed]").nth(1)).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("input[type='checkbox']")).not.toBeChecked();
   await page.locator("input[type='checkbox']").check();
-  await page.locator("main").locator("button").last().click();
+  await page.getByRole("button", { name: "저장" }).click();
   await waitForSaved(page);
 
   await page.reload();

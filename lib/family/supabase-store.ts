@@ -31,6 +31,7 @@ type ChildRow = Tables["children"]["Row"];
 type ParentRow = Tables["child_parents"]["Row"];
 type AttendanceSessionRow = Tables["attendance_sessions"]["Row"];
 type AttendanceRecordRow = Tables["attendance_records"]["Row"];
+type RemoteWriteResult = { ok: true; message: "" } | { ok: false; message: string };
 
 function createFamilyOpenSupabaseClient() {
   const env = safeParsePublicEnv();
@@ -139,6 +140,26 @@ function buildAttendanceByDate(sessions: AttendanceSessionRow[], records: Attend
       } satisfies AttendanceSession,
     ]),
   );
+}
+
+export function createAttendanceSessionUpsertRow(session: AttendanceSession) {
+  return {
+    organization_id: DEFAULT_ORGANIZATION_ID,
+    session_date: session.sessionDate,
+    note: session.note,
+    share_with_pastor: session.shareWithPastor ?? false,
+    saved_at: optionalDate(session.savedAt),
+  };
+}
+
+export function createAttendanceRecordInsertRows(sessionId: string, records: AttendanceSession["records"]) {
+  return Object.entries(records).map(([childId, record]) => ({
+    organization_id: DEFAULT_ORGANIZATION_ID,
+    session_id: sessionId,
+    child_id: childId,
+    status: record.status ?? null,
+    qt_completed: record.qtCompleted,
+  }));
 }
 
 async function ensureDefaultOrganization(supabase: FamilySupabaseClient) {
@@ -271,13 +292,7 @@ async function replaceAttendance(supabase: FamilySupabaseClient, store: FamilyOp
     return error;
   }
 
-  const sessionRows = sessions.map((session) => ({
-    organization_id: DEFAULT_ORGANIZATION_ID,
-    session_date: session.sessionDate,
-    note: session.note,
-    share_with_pastor: session.shareWithPastor ?? false,
-    saved_at: optionalDate(session.savedAt),
-  }));
+  const sessionRows = sessions.map(createAttendanceSessionUpsertRow);
 
   const { error: upsertSessionsError } = await supabase
     .from("attendance_sessions")
@@ -334,13 +349,7 @@ async function replaceAttendance(supabase: FamilySupabaseClient, store: FamilyOp
       return [];
     }
 
-    return Object.entries(session.records).map(([childId, record]) => ({
-      organization_id: DEFAULT_ORGANIZATION_ID,
-      session_id: sessionId,
-      child_id: childId,
-      status: record.status ?? null,
-      qt_completed: record.qtCompleted,
-    }));
+    return createAttendanceRecordInsertRows(sessionId, session.records);
   });
 
   if (recordRows.length === 0) {
@@ -349,6 +358,54 @@ async function replaceAttendance(supabase: FamilySupabaseClient, store: FamilyOp
 
   const { error } = await supabase.from("attendance_records").insert(recordRows);
   return error;
+}
+
+export async function saveAttendanceSessionWithClient(
+  supabase: FamilySupabaseClient,
+  session: AttendanceSession,
+): Promise<RemoteWriteResult> {
+  const organizationError = await ensureDefaultOrganization(supabase);
+
+  if (organizationError) {
+    return { ok: false, message: organizationError.message };
+  }
+
+  const { data: savedSession, error: sessionError } = await supabase
+    .from("attendance_sessions")
+    .upsert(createAttendanceSessionUpsertRow(session), { onConflict: "organization_id,session_date" })
+    .select("id")
+    .single();
+
+  if (sessionError) {
+    return { ok: false, message: sessionError.message };
+  }
+
+  if (!savedSession) {
+    return { ok: false, message: "출석 세션을 저장하지 못했습니다." };
+  }
+
+  const { error: deleteRecordsError } = await supabase
+    .from("attendance_records")
+    .delete()
+    .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+    .eq("session_id", savedSession.id);
+
+  if (deleteRecordsError) {
+    return { ok: false, message: deleteRecordsError.message };
+  }
+
+  const recordRows = createAttendanceRecordInsertRows(savedSession.id, session.records);
+  if (recordRows.length === 0) {
+    return { ok: true, message: "" };
+  }
+
+  const { error: recordsError } = await supabase.from("attendance_records").insert(recordRows);
+
+  if (recordsError) {
+    return { ok: false, message: recordsError.message };
+  }
+
+  return { ok: true, message: "" };
 }
 
 export function isFamilyOpenSupabaseConfigured() {
@@ -550,6 +607,16 @@ export async function saveFamilyOpenStoreWithClient(supabase: FamilySupabaseClie
   }
 
   return { ok: true, message: "" };
+}
+
+export async function saveAttendanceSessionToSupabase(session: AttendanceSession) {
+  const supabase = createFamilyOpenSupabaseClient();
+
+  if (!supabase) {
+    return { ok: false, message: "Supabase 환경변수가 설정되지 않았습니다." };
+  }
+
+  return saveAttendanceSessionWithClient(supabase, session);
 }
 
 export async function saveFamilyOpenStoreToSupabase(store: FamilyOpenStore) {

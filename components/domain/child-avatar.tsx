@@ -50,7 +50,7 @@ export function ChildAvatar({ name, gender = "unspecified", photoDataUrl, size =
     >
       {photoDataUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img alt="" className="h-full w-full object-cover" src={photoDataUrl} />
+        <img alt="" className="h-full w-full object-cover" decoding="async" loading="lazy" src={photoDataUrl} />
       ) : initial ? (
         initial
       ) : (

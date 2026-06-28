@@ -1,11 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createEmptyFamilyOpenStore } from "@/lib/family/default-store";
 import { isValidBirthMonthDay, parseBirthDateParts } from "@/lib/family/stats";
 import { LEGACY_LOCAL_STORE_KEY } from "@/lib/family/store-persistence";
-import { loadFamilyOpenStoreFromSupabase, saveFamilyOpenStoreToSupabase } from "@/lib/family/supabase-store";
+import {
+  loadFamilyOpenStoreFromSupabase,
+  saveAttendanceSessionToSupabase,
+  saveFamilyOpenStoreToSupabase,
+} from "@/lib/family/supabase-store";
 import type {
+  AttendanceRecord,
+  AttendanceSession,
   AttendanceStatus,
   ChildGender,
   FamilyChild,
@@ -15,6 +21,7 @@ import type {
 } from "@/lib/family/types";
 
 type SaveState = "idle" | "loading" | "saved" | "error";
+type SaveResult = { ok: boolean; message: string };
 
 type ParentInput = {
   id?: string;
@@ -120,10 +127,20 @@ function removeLegacyLocalStore() {
   }
 }
 
+function cloneAttendanceRecords(records: AttendanceSession["records"]) {
+  return Object.fromEntries(
+    Object.entries(records).map(([childId, record]) => [
+      childId,
+      { status: record.status, qtCompleted: record.qtCompleted } satisfies AttendanceRecord,
+    ]),
+  );
+}
+
 export function useFamilyOpenStore() {
   const [store, setStore] = useState<FamilyOpenStore>(() => createEmptyFamilyOpenStore());
   const [saveState, setSaveState] = useState<SaveState>("loading");
   const [isReady, setIsReady] = useState(false);
+  const saveRequestIdRef = useRef(0);
 
   useEffect(() => {
     let isCancelled = false;
@@ -149,12 +166,31 @@ export function useFamilyOpenStore() {
     };
   }, []);
 
-  const saveStore = useCallback((nextStore: FamilyOpenStore) => {
+  const runRemoteSave = useCallback(async (operation: () => Promise<SaveResult>) => {
+    const requestId = saveRequestIdRef.current + 1;
+    saveRequestIdRef.current = requestId;
     setSaveState("loading");
-    void saveFamilyOpenStoreToSupabase(nextStore).then((result) => {
+
+    let result: SaveResult;
+    try {
+      result = await operation();
+    } catch {
+      result = { ok: false, message: "네트워크 연결을 확인한 뒤 다시 저장해 주세요." };
+    }
+
+    if (saveRequestIdRef.current === requestId) {
       setSaveState(result.ok ? "saved" : "error");
-    });
+    }
+
+    return result;
   }, []);
+
+  const saveStore = useCallback(
+    (nextStore: FamilyOpenStore) => {
+      void runRemoteSave(() => saveFamilyOpenStoreToSupabase(nextStore));
+    },
+    [runRemoteSave],
+  );
 
   const persist = useCallback(
     (nextStore: FamilyOpenStore) => {
@@ -598,13 +634,26 @@ export function useFamilyOpenStore() {
   );
 
   const saveAttendanceSession = useCallback(
-    (
+    async (
       sessionDate: string,
       records: FamilyOpenStore["attendanceByDate"][string]["records"],
       note: string,
       shareWithPastor: boolean,
     ) => {
-      updateStore((current) => {
+      const nextSession: AttendanceSession = {
+        sessionDate,
+        records: cloneAttendanceRecords(records),
+        note,
+        shareWithPastor,
+        savedAt: new Date().toISOString(),
+      };
+      const result = await runRemoteSave(() => saveAttendanceSessionToSupabase(nextSession));
+
+      if (!result.ok) {
+        return result;
+      }
+
+      setStore((current) => {
         const session = current.attendanceByDate[sessionDate] ?? {
           sessionDate,
           records: {},
@@ -618,16 +667,15 @@ export function useFamilyOpenStore() {
             ...current.attendanceByDate,
             [sessionDate]: {
               ...session,
-              records,
-              note,
-              shareWithPastor,
-              savedAt: new Date().toISOString(),
+              ...nextSession,
             },
           },
         };
       });
+
+      return result;
     },
-    [updateStore],
+    [runRemoteSave],
   );
 
   return useMemo(

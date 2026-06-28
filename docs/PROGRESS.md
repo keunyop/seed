@@ -1,5 +1,35 @@
 # Progress
 
+## 2026-06-28 iPhone 출석 조회/저장 안정성 개선
+
+### 확인
+- iPhone Safari에서 저장이 느리거나 간헐적으로 실패할 수 있는 주요 원인은 `/attendance` 저장 버튼이 현재 출석 세션만 저장하지 않고 전체 store 저장 경로를 타는 구조였다.
+- 기존 전체 저장 경로는 선생님, 반, 아이, 보호자, 모든 출석 세션/기록을 순서대로 다시 쓰며, 특히 `attendance_records` 전체 삭제 후 재삽입을 수행했다.
+- 모바일 네트워크나 WebKit 환경에서는 이 요청량이 커져 저장 완료가 늦고, 중간 실패 시 사용자가 저장 여부를 믿기 어려운 문제가 생길 수 있었다.
+
+### 완료
+- `/attendance` 저장을 현재 날짜의 `attendance_sessions` 1건과 해당 세션의 `attendance_records`만 저장하는 scoped 저장 경로로 분리했다.
+- 전체 store 저장 경로는 아이/반/선생님 관리처럼 전체 동기화가 필요한 작업에만 유지했다.
+- 저장 중에는 날짜, 반, 출석/큐티 토글, 전도사님 공유 체크, 메모 입력과 저장 버튼을 비활성화해 중복 제출을 막았다.
+- 저장 실패 시 `저장하지 못했습니다. 변경 내용은 남아 있습니다.`를 보여주고, 체크한 출석/큐티/메모 draft를 유지해 같은 저장 버튼으로 재시도할 수 있게 했다.
+- 최신 저장 요청만 공통 저장 상태를 갱신하도록 해 느린 응답이 뒤늦게 도착해 상태를 덮어쓰는 위험을 줄였다.
+- 아이 아바타 사진에 `loading="lazy"`와 `decoding="async"`를 적용해 긴 명단에서 iPhone Safari 초기 렌더링 부담을 줄였다.
+- E2E 저장 버튼 선택자를 DOM 순서 의존에서 접근성 이름 기반으로 바꿨다.
+- WebKit 모바일 mock E2E를 추가해 원격 Supabase를 변경하지 않고 저장 실패 후 입력 유지와 재시도 성공, 현재 세션만 저장하는 요청 범위를 검증했다.
+- MVP 설계서에 scoped 출석 저장, 저장 실패 재시도, WebKit 회귀 기준을 반영했다.
+
+### 검증
+- `pnpm run typecheck`: 통과
+- `.\node_modules\.bin\eslint.cmd .`: 통과
+- `.\node_modules\.bin\vitest.cmd run`: 5 files, 20 tests 통과
+- `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`: 1 file, 1 test 통과
+- `pnpm run build`: 통과
+- `.\node_modules\.bin\playwright.cmd test tests/e2e/attendance-mock.spec.ts --project=webkit-mobile`: 1 test 통과. sandbox에서 Next dev server 실행이 `Access is denied`로 실패해 권한 상승으로 재실행했다.
+
+### 남은 위험
+- 기존 전체 E2E는 원격 Supabase 상태 초기화/변경 위험이 있어 이번 작업에서는 실행하지 않았다.
+- 공개 운영 전에는 현재 패밀리 오픈의 anon 쓰기 정책을 공유 코드 또는 Auth/RLS 기반으로 다시 설계해야 한다.
+
 ## 2026-06-27 상단 배지 제거와 모바일 입력 폭 정리
 
 ### 완료
