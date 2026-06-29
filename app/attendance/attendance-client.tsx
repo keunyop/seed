@@ -22,13 +22,16 @@ type AttendanceDraft = {
   records: Record<string, AttendanceRecord>;
   note: string;
   shareWithPastor: boolean;
-  isDirty: boolean;
+  isMemoDirty: boolean;
 };
 
 type AttendanceDraftState = {
   key: string;
   draft: AttendanceDraft;
 };
+
+type RecordSaveState = "idle" | "saving" | "saved" | "error";
+type MemoSaveFeedback = "idle" | "saved" | "error";
 
 const ALL_CLASSES_VALUE = "all";
 
@@ -56,13 +59,30 @@ function getToggleButtonClass(isPressed: boolean, tone: "present" | "qt") {
   );
 }
 
+function getRecordSaveMessage(state: RecordSaveState) {
+  if (state === "saving") {
+    return "저장 중";
+  }
+
+  if (state === "saved") {
+    return "저장됨";
+  }
+
+  if (state === "error") {
+    return "저장 실패";
+  }
+
+  return "";
+}
+
 export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
-  const { store, isReady, saveAttendanceSession, updateChild, deleteChild } = useFamilyOpenStore();
+  const { store, isReady, saveAttendanceRecord, saveAttendanceMemo, updateChild, deleteChild } = useFamilyOpenStore();
   const [sessionDate, setSessionDate] = useState(() => getNearestWeekdayDate(getLocalIsoDate(), 0));
   const [classId, setClassId] = useState(initialClassId ?? ALL_CLASSES_VALUE);
   const [selectedChild, setSelectedChild] = useState<FamilyChild | null>(null);
-  const [isSavingAttendance, setIsSavingAttendance] = useState(false);
-  const [saveFeedback, setSaveFeedback] = useState<"idle" | "saved" | "error">("idle");
+  const [recordSaveStateByChildId, setRecordSaveStateByChildId] = useState<Record<string, RecordSaveState>>({});
+  const [isSavingMemo, setIsSavingMemo] = useState(false);
+  const [memoFeedback, setMemoFeedback] = useState<MemoSaveFeedback>("idle");
 
   const selectedClassValue =
     classId === ALL_CLASSES_VALUE || store.classes.some((item) => item.id === classId) ? classId : ALL_CLASSES_VALUE;
@@ -73,18 +93,20 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
   );
   const classNameById = useMemo(() => new Map(store.classes.map((item) => [item.id, item.name])), [store.classes]);
   const session = useMemo(() => getSession(store, sessionDate), [sessionDate, store]);
-  const savedShareWithPastor = store.attendanceByDate[sessionDate]?.shareWithPastor ?? false;
-  const sessionKey = `${sessionDate}:${session.savedAt}`;
+  const savedShareWithPastor = session.shareWithPastor ?? false;
+  const sessionKey = `${sessionDate}:${isReady ? "ready" : "loading"}`;
   const freshDraft = useMemo<AttendanceDraft>(() => ({
     sessionDate,
     sessionKey,
     records: session.records,
     note: session.note,
     shareWithPastor: savedShareWithPastor,
-    isDirty: false,
+    isMemoDirty: false,
   }), [session.records, session.note, savedShareWithPastor, sessionDate, sessionKey]);
   const [draftState, setDraftState] = useState<AttendanceDraftState>(() => ({ key: sessionKey, draft: freshDraft }));
   const activeDraft = draftState.key === sessionKey ? draftState.draft : freshDraft;
+  const isSavingAnyRecord = Object.values(recordSaveStateByChildId).some((state) => state === "saving");
+  const isContextLocked = !isReady || isSavingAnyRecord || isSavingMemo;
 
   function setActiveDraft(recipe: (current: AttendanceDraft) => AttendanceDraft) {
     setDraftState((current) => {
@@ -100,61 +122,77 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
   );
   const notPresentCount = children.length - presentCount;
 
-  function updateDraftRecord(childId: string, recipe: (record: AttendanceRecord) => AttendanceRecord) {
-    setSaveFeedback("idle");
+  function setRecordSaveState(childId: string, state: RecordSaveState) {
+    setRecordSaveStateByChildId((current) => ({ ...current, [childId]: state }));
+  }
+
+  async function saveCurrentRecord(childId: string, record: AttendanceRecord) {
+    setRecordSaveState(childId, "saving");
+    const result = await saveAttendanceRecord(sessionDate, childId, record);
+    setRecordSaveState(childId, result.ok ? "saved" : "error");
+  }
+
+  function updateDraftRecordAndSave(childId: string, recipe: (record: AttendanceRecord) => AttendanceRecord) {
+    const currentRecord = activeDraft.records[childId] ?? { qtCompleted: false };
+    const nextRecord = recipe(currentRecord);
+
     setActiveDraft((current) => ({
       ...current,
       records: {
         ...current.records,
-        [childId]: recipe(current.records[childId] ?? { qtCompleted: false }),
+        [childId]: nextRecord,
       },
-      isDirty: true,
     }));
+    void saveCurrentRecord(childId, nextRecord);
   }
 
   function toggleDraftPresent(childId: string) {
-    updateDraftRecord(childId, (record) => ({
+    updateDraftRecordAndSave(childId, (record) => ({
       ...record,
       status: record.status === "present" ? undefined : "present",
     }));
   }
 
   function toggleDraftQt(childId: string) {
-    updateDraftRecord(childId, (record) => ({
+    updateDraftRecordAndSave(childId, (record) => ({
       ...record,
       qtCompleted: !record.qtCompleted,
     }));
   }
 
-  async function handleSaveAll() {
-    if (isSavingAttendance || !activeDraft.isDirty) {
-      return;
-    }
-
-    setIsSavingAttendance(true);
-    const result = await saveAttendanceSession(sessionDate, activeDraft.records, activeDraft.note, activeDraft.shareWithPastor);
-    setIsSavingAttendance(false);
-
-    if (result.ok) {
-      setActiveDraft((current) => ({ ...current, isDirty: false }));
-      setSaveFeedback("saved");
-      return;
-    }
-
-    setSaveFeedback("error");
+  function retryRecordSave(childId: string) {
+    void saveCurrentRecord(childId, activeDraft.records[childId] ?? { qtCompleted: false });
   }
 
-  const saveStatusMessage = !isReady
+  async function handleSaveMemo() {
+    if (isSavingMemo || !activeDraft.isMemoDirty) {
+      return;
+    }
+
+    setIsSavingMemo(true);
+    const result = await saveAttendanceMemo(sessionDate, activeDraft.note, activeDraft.shareWithPastor);
+    setIsSavingMemo(false);
+
+    if (result.ok) {
+      setActiveDraft((current) => ({ ...current, isMemoDirty: false }));
+      setMemoFeedback("saved");
+      return;
+    }
+
+    setMemoFeedback("error");
+  }
+
+  const memoStatusMessage = !isReady
     ? "출석 데이터를 불러오는 중"
-    : isSavingAttendance
-      ? "저장 중입니다"
-      : saveFeedback === "error"
-        ? "저장하지 못했습니다. 변경 내용은 남아 있습니다."
-        : activeDraft.isDirty
-          ? "변경 있음"
-          : saveFeedback === "saved"
-            ? "저장됨"
-            : "변경 없음";
+    : isSavingMemo
+      ? "메모 저장 중"
+      : memoFeedback === "error"
+        ? "메모를 저장하지 못했습니다. 입력 내용은 남아 있습니다."
+        : activeDraft.isMemoDirty
+          ? "메모 변경 있음"
+          : memoFeedback === "saved"
+            ? "메모 저장됨"
+            : "메모 변경 없음";
 
   return (
     <main className="min-h-dvh bg-white pb-[calc(128px+var(--safe-bottom))]">
@@ -171,9 +209,10 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
               <span className="text-sm font-extrabold text-charcoal">날짜</span>
               <input
                 className="mt-2 min-h-12 w-full max-w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-2 text-sm font-bold text-almost-black sm:px-3 sm:text-base"
-                disabled={isSavingAttendance}
+                disabled={isContextLocked}
                 onChange={(event) => {
-                  setSaveFeedback("idle");
+                  setRecordSaveStateByChildId({});
+                  setMemoFeedback("idle");
                   setSessionDate(event.target.value);
                 }}
                 type="date"
@@ -184,9 +223,10 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
               <span className="text-sm font-extrabold text-charcoal">반</span>
               <select
                 className="mt-2 min-h-12 w-full max-w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
-                disabled={isSavingAttendance}
+                disabled={isContextLocked}
                 onChange={(event) => {
-                  setSaveFeedback("idle");
+                  setRecordSaveStateByChildId({});
+                  setMemoFeedback("idle");
                   setClassId(event.target.value);
                 }}
                 value={selectedClassValue}
@@ -201,32 +241,6 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
             </label>
           </div>
         </header>
-
-        <div className="sticky bottom-[calc(76px+var(--safe-bottom))] z-10 mt-4 bg-white/95 py-2 backdrop-blur sm:static sm:bg-transparent sm:p-0">
-          <div className="flex items-center gap-3">
-            <p
-              aria-live="polite"
-              className={cn(
-                "min-w-0 flex-1 text-sm font-extrabold",
-                saveFeedback === "error"
-                  ? "text-bubblegum-pink"
-                  : activeDraft.isDirty || isSavingAttendance
-                    ? "text-sky-blue-text"
-                    : "text-graphite",
-              )}
-            >
-              {saveStatusMessage}
-            </p>
-            <PressableButton
-              aria-busy={isSavingAttendance}
-              className="min-w-28 px-4 sm:min-w-36"
-              disabled={!isReady || !activeDraft.isDirty || isSavingAttendance}
-              onClick={handleSaveAll}
-            >
-              {isSavingAttendance ? "저장 중" : "저장"}
-            </PressableButton>
-          </div>
-        </div>
 
         <section className="mt-4 rounded-[12px] border-2 border-cloud-gray p-4 sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -249,6 +263,9 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
             <div className="mt-4 grid gap-3">
               {children.map((child) => {
                 const record = activeDraft.records[child.id] ?? getChildRecord(session, child.id);
+                const recordSaveState = recordSaveStateByChildId[child.id] ?? "idle";
+                const isSavingRecord = recordSaveState === "saving";
+                const recordSaveMessage = getRecordSaveMessage(recordSaveState);
                 return (
                   <article className="rounded-[12px] border-2 border-cloud-gray p-3" key={child.id}>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -275,9 +292,10 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <button
+                          aria-busy={isSavingRecord}
                           aria-pressed={record.status === "present"}
                           className={getToggleButtonClass(record.status === "present", "present")}
-                          disabled={isSavingAttendance}
+                          disabled={!isReady || isSavingRecord}
                           onClick={() => toggleDraftPresent(child.id)}
                           type="button"
                         >
@@ -285,15 +303,41 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
                           출석
                         </button>
                         <button
+                          aria-busy={isSavingRecord}
                           aria-pressed={record.qtCompleted}
                           className={getToggleButtonClass(record.qtCompleted, "qt")}
-                          disabled={isSavingAttendance}
+                          disabled={!isReady || isSavingRecord}
                           onClick={() => toggleDraftQt(child.id)}
                           type="button"
                         >
                           큐티
                         </button>
                       </div>
+                    </div>
+                    <div className="mt-2 flex min-h-6 items-center justify-end gap-2">
+                      <p
+                        aria-live="polite"
+                        className={cn(
+                          "text-xs font-extrabold",
+                          recordSaveState === "error"
+                            ? "text-bubblegum-pink"
+                            : recordSaveState === "saving"
+                              ? "text-sky-blue-text"
+                              : "text-graphite",
+                        )}
+                      >
+                        {recordSaveMessage}
+                      </p>
+                      {recordSaveState === "error" ? (
+                        <button
+                          className="min-h-8 rounded-[10px] border-2 border-cloud-gray px-3 text-xs font-extrabold text-sky-blue-text"
+                          disabled={!isReady || isSavingRecord}
+                          onClick={() => retryRecordSave(child.id)}
+                          type="button"
+                        >
+                          다시 저장
+                        </button>
+                      ) : null}
                     </div>
                   </article>
                 );
@@ -309,10 +353,14 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
               <input
                 checked={activeDraft.shareWithPastor}
                 className="h-5 w-5 accent-duo-green"
-                disabled={isSavingAttendance}
+                disabled={!isReady || isSavingMemo}
                 onChange={(event) => {
-                  setSaveFeedback("idle");
-                  setActiveDraft((current) => ({ ...current, shareWithPastor: event.target.checked, isDirty: true }));
+                  setMemoFeedback("idle");
+                  setActiveDraft((current) => ({
+                    ...current,
+                    shareWithPastor: event.target.checked,
+                    isMemoDirty: true,
+                  }));
                 }}
                 type="checkbox"
               />
@@ -323,15 +371,38 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
             <span className="sr-only">이번 주 메모 내용</span>
             <textarea
               className="min-h-28 w-full resize-y rounded-[12px] border-2 border-cloud-gray p-3 text-base font-medium text-almost-black"
-              disabled={isSavingAttendance}
+              disabled={!isReady || isSavingMemo}
               maxLength={500}
               onChange={(event) => {
-                setSaveFeedback("idle");
-                setActiveDraft((current) => ({ ...current, note: event.target.value, isDirty: true }));
+                setMemoFeedback("idle");
+                setActiveDraft((current) => ({ ...current, note: event.target.value, isMemoDirty: true }));
               }}
               value={activeDraft.note}
             />
           </label>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p
+              aria-live="polite"
+              className={cn(
+                "min-w-0 text-sm font-extrabold",
+                memoFeedback === "error"
+                  ? "text-bubblegum-pink"
+                  : activeDraft.isMemoDirty || isSavingMemo
+                    ? "text-sky-blue-text"
+                    : "text-graphite",
+              )}
+            >
+              {memoStatusMessage}
+            </p>
+            <PressableButton
+              aria-busy={isSavingMemo}
+              className="w-full px-4 sm:w-auto sm:min-w-36"
+              disabled={!isReady || !activeDraft.isMemoDirty || isSavingMemo}
+              onClick={handleSaveMemo}
+            >
+              {isSavingMemo ? "저장 중" : "저장"}
+            </PressableButton>
+          </div>
         </section>
       </div>
       {selectedChild ? (

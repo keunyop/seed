@@ -1,5 +1,34 @@
 # Progress
 
+## 2026-06-29 출석/큐티 개별 저장과 메모 전용 저장
+
+### 완료
+- `/attendance`의 하단 전체 저장 바를 제거하고, 출석/큐티 토글을 누를 때마다 해당 아이의 현재 날짜 record만 즉시 저장하도록 변경했다.
+- 출석/큐티 저장은 `attendance_sessions`를 upsert해 session id를 보장한 뒤 `attendance_records`의 `session_id + child_id` 1행만 upsert한다.
+- 저장 중에는 해당 아이의 출석/큐티 토글만 잠시 비활성화하고, row 안에 `저장 중`, `저장됨`, `저장 실패` 상태를 표시한다.
+- 출석/큐티 저장 실패 시 체크한 값은 화면에 유지하고, row 안의 `다시 저장` 버튼으로 같은 값을 재시도할 수 있게 했다.
+- 저장 버튼을 `이번 주 메모` 카드 안으로 옮기고, 메모와 전도사님 공유 여부만 저장하도록 분리했다.
+- 메모 저장은 `attendance_sessions`의 `note`, `share_with_pastor`, `saved_at`만 upsert하고 `attendance_records`를 변경하지 않는다.
+- 저장 성공으로 `savedAt`이 바뀌어도 현재 출석 draft가 다시 초기화되지 않도록 출석 화면 draft key를 날짜/로드상태 기준으로 조정했다.
+- WebKit mock E2E와 Supabase helper 단위 테스트를 새 저장 단위에 맞춰 갱신했다.
+- MVP 설계서에 출석/큐티 즉시 개별 저장, 메모 전용 저장, row별 실패 재시도 기준을 반영했다.
+
+### 검증
+- `pnpm run typecheck`: 통과
+- `.\node_modules\.bin\eslint.cmd .`: 통과
+- `.\node_modules\.bin\vitest.cmd run`: 5 files, 22 tests 통과
+- `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`: 1 file, 1 test 통과
+- `.\node_modules\.bin\playwright.cmd test tests/e2e/attendance-mock.spec.ts --project=webkit-mobile`: 1 test 통과. sandbox에서 Next dev server 실행이 `Access is denied`로 실패해 권한 상승으로 재실행했다.
+- `pnpm run build`: 통과
+
+### 데이터/배포 영향
+- DB migration과 환경변수 변경은 없다.
+- 운영 반영에는 재배포가 필요하다.
+
+### 남은 위험
+- 전체 원격 Supabase E2E는 실제 원격 상태를 초기화/변경하는 테스트라 이번 작업에서는 실행하지 않았다.
+- 공개 운영 전에는 현재 패밀리 오픈의 anon 쓰기 정책을 공유 코드 또는 Auth/RLS 기반으로 다시 설계해야 한다.
+
 ## 2026-06-28 Vercel Speed Insights 추가
 
 ### 완료

@@ -2,9 +2,9 @@ import { expect, test } from "@playwright/test";
 
 const ORGANIZATION_ID = "00000000-0000-0000-0000-000000000001";
 
-test("mobile WebKit keeps attendance edits after a failed scoped save and retries", async ({ page }) => {
+test("mobile WebKit saves attendance rows immediately and memo separately", async ({ page }) => {
   const mutations: Array<{ method: string; table: string; body: unknown }> = [];
-  let shouldFailRecordInsert = true;
+  let shouldFailRecordUpsert = true;
 
   await page.route("**/rest/v1/**", async (route) => {
     const request = route.request();
@@ -95,8 +95,8 @@ test("mobile WebKit keeps attendance edits after a failed scoped save and retrie
       return json({ id: "11111111-1111-4111-8111-111111111111" }, 201);
     }
 
-    if (table === "attendance_records" && method === "POST" && shouldFailRecordInsert) {
-      shouldFailRecordInsert = false;
+    if (table === "attendance_records" && method === "POST" && shouldFailRecordUpsert) {
+      shouldFailRecordUpsert = false;
       return json({ message: "temporary failure" }, 500);
     }
 
@@ -109,33 +109,52 @@ test("mobile WebKit keeps attendance edits after a failed scoped save and retrie
 
   const row = page.locator("article").filter({ hasText: "아이폰테스트" });
   await row.getByRole("button", { name: "출석" }).click();
-  await row.getByRole("button", { name: "큐티" }).click();
-  await expect(page.getByText("변경 있음")).toBeVisible();
-
-  await page.getByRole("button", { name: "저장" }).click();
-  await expect(page.getByText("저장하지 못했습니다. 변경 내용은 남아 있습니다.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "저장" })).toBeEnabled();
+  await expect(row.getByText("저장 실패")).toBeVisible();
   await expect(row.getByRole("button", { name: "출석" })).toHaveAttribute("aria-pressed", "true");
-  await expect(row.getByRole("button", { name: "큐티" })).toHaveAttribute("aria-pressed", "true");
 
-  await page.getByRole("button", { name: "저장" }).click();
-  await expect(page.getByText("저장됨")).toBeVisible();
+  await row.getByRole("button", { name: "다시 저장" }).click();
+  await expect(row.getByText("저장됨")).toBeVisible();
+
+  await row.getByRole("button", { name: "큐티" }).click();
+  await expect(row.getByRole("button", { name: "큐티" })).toHaveAttribute("aria-pressed", "true");
+  await expect(row.getByText("저장됨")).toBeVisible();
 
   const savedRecordInsert = mutations
     .filter((item) => item.method === "POST" && item.table === "attendance_records")
     .at(-1);
-  expect(savedRecordInsert?.body).toEqual([
-    {
-      organization_id: ORGANIZATION_ID,
-      session_id: "11111111-1111-4111-8111-111111111111",
-      child_id: "child-ios",
-      status: "present",
-      qt_completed: true,
-    },
-  ]);
+  expect(savedRecordInsert?.body).toEqual({
+    organization_id: ORGANIZATION_ID,
+    session_id: "11111111-1111-4111-8111-111111111111",
+    child_id: "child-ios",
+    status: "present",
+    qt_completed: true,
+  });
   expect(mutations.some((item) => item.method !== "GET" && ["teachers", "classes", "children", "child_parents"].includes(item.table))).toBe(
     false,
   );
+
+  const recordMutationCountBeforeMemoSave = mutations.filter(
+    (item) => item.method === "POST" && item.table === "attendance_records",
+  ).length;
+  const memoCard = page.locator("section").filter({ has: page.getByRole("heading", { name: "이번 주 메모" }) });
+  await memoCard.getByRole("textbox", { name: "이번 주 메모 내용" }).fill("메모만 저장");
+  await memoCard.getByLabel("전도사님 공유").check();
+  await memoCard.getByRole("button", { name: "저장" }).click();
+  await expect(memoCard.getByText("메모 저장됨")).toBeVisible();
+
+  const recordMutationCountAfterMemoSave = mutations.filter(
+    (item) => item.method === "POST" && item.table === "attendance_records",
+  ).length;
+  expect(recordMutationCountAfterMemoSave).toBe(recordMutationCountBeforeMemoSave);
+  expect(
+    mutations
+      .filter((item) => item.method === "POST" && item.table === "attendance_sessions")
+      .at(-1)?.body,
+  ).toMatchObject({
+    organization_id: ORGANIZATION_ID,
+    note: "메모만 저장",
+    share_with_pastor: true,
+  });
 
   const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   expect(hasHorizontalOverflow).toBe(false);

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  createAttendanceRecordUpsertRow,
   createAttendanceRecordInsertRows,
   createAttendanceSessionUpsertRow,
+  createAttendanceSessionTouchRow,
   DEFAULT_ORGANIZATION_ID,
 } from "@/lib/family/supabase-store";
 import type { AttendanceSession } from "@/lib/family/types";
@@ -47,5 +49,23 @@ describe("Supabase attendance write helpers", () => {
         qt_completed: false,
       },
     ]);
+  });
+
+  it("builds a session touch row without memo fields", () => {
+    expect(createAttendanceSessionTouchRow("2026-06-28", "2026-06-28T19:00:00.000Z")).toEqual({
+      organization_id: DEFAULT_ORGANIZATION_ID,
+      session_date: "2026-06-28",
+      saved_at: "2026-06-28T19:00:00.000Z",
+    });
+  });
+
+  it("builds one record upsert row", () => {
+    expect(createAttendanceRecordUpsertRow("session-1", "child-1", { status: "present", qtCompleted: true })).toEqual({
+      organization_id: DEFAULT_ORGANIZATION_ID,
+      session_id: "session-1",
+      child_id: "child-1",
+      status: "present",
+      qt_completed: true,
+    });
   });
 });

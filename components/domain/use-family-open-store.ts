@@ -5,6 +5,8 @@ import { createEmptyFamilyOpenStore } from "@/lib/family/default-store";
 import { isValidBirthMonthDay, parseBirthDateParts } from "@/lib/family/stats";
 import { LEGACY_LOCAL_STORE_KEY } from "@/lib/family/store-persistence";
 import {
+  saveAttendanceMemoToSupabase,
+  saveAttendanceRecordToSupabase,
   loadFamilyOpenStoreFromSupabase,
   saveAttendanceSessionToSupabase,
   saveFamilyOpenStoreToSupabase,
@@ -633,6 +635,90 @@ export function useFamilyOpenStore() {
     [updateStore],
   );
 
+  const saveAttendanceRecord = useCallback(
+    async (sessionDate: string, childId: string, record: AttendanceRecord) => {
+      const savedAt = new Date().toISOString();
+      const nextRecord: AttendanceRecord = {
+        status: record.status,
+        qtCompleted: record.qtCompleted,
+      };
+      const result = await runRemoteSave(() =>
+        saveAttendanceRecordToSupabase(sessionDate, childId, nextRecord, savedAt),
+      );
+
+      if (!result.ok) {
+        return result;
+      }
+
+      setStore((current) => {
+        const session = current.attendanceByDate[sessionDate] ?? {
+          sessionDate,
+          records: {},
+          note: "",
+          shareWithPastor: false,
+          savedAt: "",
+        };
+
+        return {
+          ...current,
+          attendanceByDate: {
+            ...current.attendanceByDate,
+            [sessionDate]: {
+              ...session,
+              savedAt,
+              records: {
+                ...session.records,
+                [childId]: nextRecord,
+              },
+            },
+          },
+        };
+      });
+
+      return result;
+    },
+    [runRemoteSave],
+  );
+
+  const saveAttendanceMemo = useCallback(
+    async (sessionDate: string, note: string, shareWithPastor: boolean) => {
+      const savedAt = new Date().toISOString();
+      const result = await runRemoteSave(() =>
+        saveAttendanceMemoToSupabase(sessionDate, note, shareWithPastor, savedAt),
+      );
+
+      if (!result.ok) {
+        return result;
+      }
+
+      setStore((current) => {
+        const session = current.attendanceByDate[sessionDate] ?? {
+          sessionDate,
+          records: {},
+          note: "",
+          shareWithPastor: false,
+          savedAt: "",
+        };
+
+        return {
+          ...current,
+          attendanceByDate: {
+            ...current.attendanceByDate,
+            [sessionDate]: {
+              ...session,
+              note,
+              shareWithPastor,
+              savedAt,
+            },
+          },
+        };
+      });
+
+      return result;
+    },
+    [runRemoteSave],
+  );
+
   const saveAttendanceSession = useCallback(
     async (
       sessionDate: string,
@@ -695,6 +781,8 @@ export function useFamilyOpenStore() {
       setAttendanceRecord,
       setAllAttendance,
       setSessionNote,
+      saveAttendanceRecord,
+      saveAttendanceMemo,
       saveAttendanceSession,
     }),
     [
@@ -705,6 +793,8 @@ export function useFamilyOpenStore() {
       deleteClass,
       deleteTeacher,
       isReady,
+      saveAttendanceMemo,
+      saveAttendanceRecord,
       saveAttendanceSession,
       saveState,
       setAllAttendance,
