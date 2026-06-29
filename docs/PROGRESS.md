@@ -1,5 +1,21 @@
 # Progress
 
+## 2026-06-28 Vercel Speed Insights 추가
+
+### 완료
+- `@vercel/speed-insights` 패키지를 dependency로 추가했다.
+- Next.js 루트 레이아웃 `app/layout.tsx`에 `<SpeedInsights />`를 추가해 배포 후 Vercel에서 실제 사용자 성능 데이터를 수집할 수 있게 했다.
+- MVP 설계서 기술 기준에 Vercel Speed Insights를 반영했다.
+
+### 검증
+- `pnpm run typecheck`: 통과
+- `.\node_modules\.bin\eslint.cmd .`: 통과
+- `pnpm run build`: 통과
+
+### 데이터/배포 영향
+- DB migration과 환경변수 변경은 없다.
+- 운영 반영에는 재배포가 필요하다.
+
 ## 2026-06-28 iPhone 출석 조회/저장 안정성 개선
 
 ### 확인

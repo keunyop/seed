@@ -257,6 +257,7 @@ Supabase 정규화 업무 테이블을 앱 상태의 읽기/쓰기 기준으로 
 - Playwright
 - Lucide
 - Sonner
+- Vercel Speed Insights
 - 저장: Supabase Postgres 정규화 업무 테이블
 
 Supabase migration을 원격 프로젝트에 적용해야 앱이 원격 저장을 사용할 수 있다. `20260626000200_normalized_family_schema.sql` 적용 전에는 신규 테이블이 없어 저장 실패 상태가 표시된다.

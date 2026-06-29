@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -22,9 +23,9 @@ export default function RootLayout({
     <html lang="ko">
       <body>
         {children}
+        <SpeedInsights />
         <Toaster richColors position="top-center" />
       </body>
     </html>
   );
 }
-
