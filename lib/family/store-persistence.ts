@@ -1,7 +1,36 @@
 import { createEmptyFamilyOpenStore } from "@/lib/family/default-store";
-import type { FamilyOpenStore } from "@/lib/family/types";
+import type { AttendanceMemo, FamilyOpenStore, FamilyTeacher } from "@/lib/family/types";
 
 export const LEGACY_LOCAL_STORE_KEY = "seed-family-open-store-v1";
+
+function normalizeTeachers(teachers: FamilyTeacher[]) {
+  const normalizedTeachers = teachers.map((teacher) => ({
+    ...teacher,
+    isAdmin: teacher.isAdmin ?? false,
+  }));
+  const hasActiveAdmin = normalizedTeachers.some((teacher) => teacher.isActive && teacher.isAdmin);
+  const firstActiveTeacherId = normalizedTeachers.find((teacher) => teacher.isActive)?.id;
+
+  if (hasActiveAdmin || !firstActiveTeacherId) {
+    return normalizedTeachers;
+  }
+
+  return normalizedTeachers.map((teacher) =>
+    teacher.id === firstActiveTeacherId ? { ...teacher, isAdmin: true } : teacher,
+  );
+}
+
+function normalizeAttendanceMemos(memos: AttendanceMemo[]) {
+  return memos
+    .filter((memo) => memo.id && memo.sessionDate && memo.note.trim())
+    .map((memo) => ({
+      ...memo,
+      classId: memo.classId || undefined,
+      teacherId: memo.teacherId || undefined,
+      isSecret: memo.isSecret ?? false,
+    }))
+    .sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+}
 
 export function normalizeFamilyOpenStore(value: unknown): FamilyOpenStore {
   const defaults = createEmptyFamilyOpenStore();
@@ -19,7 +48,7 @@ export function normalizeFamilyOpenStore(value: unknown): FamilyOpenStore {
   return {
     ...defaults,
     ...parsed,
-    teachers: Array.isArray(parsed.teachers) ? parsed.teachers : defaults.teachers,
+    teachers: normalizeTeachers(Array.isArray(parsed.teachers) ? parsed.teachers : defaults.teachers),
     classes: (parsed.classes ?? defaults.classes).map((item, index) => ({
       ...item,
       teacherId: item.teacherId ?? defaults.classes[index]?.teacherId,
@@ -44,6 +73,9 @@ export function normalizeFamilyOpenStore(value: unknown): FamilyOpenStore {
           shareWithPastor: session.shareWithPastor ?? false,
         },
       ]),
+    ),
+    attendanceMemos: normalizeAttendanceMemos(
+      Array.isArray(parsed.attendanceMemos) ? parsed.attendanceMemos : defaults.attendanceMemos,
     ),
   };
 }

@@ -4,6 +4,7 @@ import { safeParsePublicEnv } from "@/lib/env";
 import { createEmptyFamilyOpenStore } from "@/lib/family/default-store";
 import { normalizeFamilyOpenStore } from "@/lib/family/store-persistence";
 import type {
+  AttendanceMemo,
   AttendanceRecord,
   AttendanceSession,
   ChildGender,
@@ -29,6 +30,7 @@ type TeacherRow = Tables["teachers"]["Row"];
 type ClassRow = Tables["classes"]["Row"];
 type ChildRow = Tables["children"]["Row"];
 type ParentRow = Tables["child_parents"]["Row"];
+type AttendanceMemoRow = Tables["attendance_memos"]["Row"];
 type AttendanceSessionRow = Tables["attendance_sessions"]["Row"];
 type AttendanceRecordRow = Tables["attendance_records"]["Row"];
 type RemoteWriteResult = { ok: true; message: "" } | { ok: false; message: string };
@@ -75,6 +77,7 @@ function mapTeacher(row: TeacherRow): FamilyTeacher {
     birthMonth: row.birth_month ?? undefined,
     birthDay: row.birth_day ?? undefined,
     phone: fromNullableText(row.phone),
+    isAdmin: row.is_admin ?? false,
     isActive: row.is_active,
   };
 }
@@ -113,6 +116,18 @@ function mapParent(row: ParentRow): ParentContact {
     relation: row.relation as ParentRelation,
     name: row.name,
     phone: row.phone,
+  };
+}
+
+function mapAttendanceMemo(row: AttendanceMemoRow): AttendanceMemo {
+  return {
+    id: row.id,
+    sessionDate: row.session_date,
+    classId: row.class_id ?? undefined,
+    teacherId: row.teacher_id ?? undefined,
+    note: row.note,
+    isSecret: row.is_secret,
+    savedAt: row.saved_at,
   };
 }
 
@@ -177,6 +192,19 @@ export function createAttendanceRecordUpsertRow(sessionId: string, childId: stri
     child_id: childId,
     status: record.status ?? null,
     qt_completed: record.qtCompleted,
+  };
+}
+
+export function createAttendanceMemoInsertRow(memo: AttendanceMemo) {
+  return {
+    id: memo.id,
+    organization_id: DEFAULT_ORGANIZATION_ID,
+    session_date: memo.sessionDate,
+    class_id: optionalText(memo.classId),
+    teacher_id: optionalText(memo.teacherId),
+    note: memo.note,
+    is_secret: memo.isSecret,
+    saved_at: memo.savedAt,
   };
 }
 
@@ -390,6 +418,25 @@ async function replaceAttendance(supabase: FamilySupabaseClient, store: FamilyOp
   return error;
 }
 
+async function replaceAttendanceMemos(supabase: FamilySupabaseClient, store: FamilyOpenStore) {
+  const { error: deleteError } = await supabase
+    .from("attendance_memos")
+    .delete()
+    .eq("organization_id", DEFAULT_ORGANIZATION_ID);
+
+  if (deleteError) {
+    return deleteError;
+  }
+
+  const memoRows = store.attendanceMemos.map(createAttendanceMemoInsertRow);
+  if (memoRows.length === 0) {
+    return null;
+  }
+
+  const { error } = await supabase.from("attendance_memos").insert(memoRows);
+  return error;
+}
+
 export async function saveAttendanceSessionWithClient(
   supabase: FamilySupabaseClient,
   session: AttendanceSession,
@@ -478,10 +525,7 @@ export async function saveAttendanceRecordWithClient(
 
 export async function saveAttendanceMemoWithClient(
   supabase: FamilySupabaseClient,
-  sessionDate: string,
-  note: string,
-  shareWithPastor: boolean,
-  savedAt: string,
+  memo: AttendanceMemo,
 ): Promise<RemoteWriteResult> {
   const organizationError = await ensureDefaultOrganization(supabase);
 
@@ -489,18 +533,7 @@ export async function saveAttendanceMemoWithClient(
     return { ok: false, message: organizationError.message };
   }
 
-  const { error } = await supabase
-    .from("attendance_sessions")
-    .upsert(
-      {
-        organization_id: DEFAULT_ORGANIZATION_ID,
-        session_date: sessionDate,
-        note,
-        share_with_pastor: shareWithPastor,
-        saved_at: optionalDate(savedAt),
-      },
-      { onConflict: "organization_id,session_date" },
-    );
+  const { error } = await supabase.from("attendance_memos").insert(createAttendanceMemoInsertRow(memo));
 
   if (error) {
     return { ok: false, message: error.message };
@@ -532,6 +565,7 @@ export async function loadFamilyOpenStoreFromSupabase(): Promise<RemoteStoreResu
     childrenResult,
     attendanceSessionsResult,
     attendanceRecordsResult,
+    attendanceMemosResult,
   ] = await Promise.all([
     supabase
       .from("teachers")
@@ -559,6 +593,11 @@ export async function loadFamilyOpenStoreFromSupabase(): Promise<RemoteStoreResu
       .eq("organization_id", DEFAULT_ORGANIZATION_ID)
       .order("session_date", { ascending: true }),
     supabase.from("attendance_records").select("*").eq("organization_id", DEFAULT_ORGANIZATION_ID),
+    supabase
+      .from("attendance_memos")
+      .select("*")
+      .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+      .order("saved_at", { ascending: false }),
   ]);
 
   const error = getFirstError([
@@ -568,6 +607,7 @@ export async function loadFamilyOpenStoreFromSupabase(): Promise<RemoteStoreResu
     childrenResult.error,
     attendanceSessionsResult.error,
     attendanceRecordsResult.error,
+    attendanceMemosResult.error,
   ]);
 
   if (error) {
@@ -582,7 +622,8 @@ export async function loadFamilyOpenStoreFromSupabase(): Promise<RemoteStoreResu
     (teachersResult.data?.length ?? 0) > 0 ||
     (classesResult.data?.length ?? 0) > 0 ||
     (childrenResult.data?.length ?? 0) > 0 ||
-    (attendanceSessionsResult.data?.length ?? 0) > 0;
+    (attendanceSessionsResult.data?.length ?? 0) > 0 ||
+    (attendanceMemosResult.data?.length ?? 0) > 0;
 
   if (!hasNormalizedData) {
     return { ok: true, store: emptyStore };
@@ -599,6 +640,7 @@ export async function loadFamilyOpenStoreFromSupabase(): Promise<RemoteStoreResu
     classes: (classesResult.data ?? []).map(mapClass),
     children: (childrenResult.data ?? []).map((child) => mapChild(child, parentsByChildId)),
     attendanceByDate: buildAttendanceByDate(attendanceSessionsResult.data ?? [], attendanceRecordsResult.data ?? []),
+    attendanceMemos: (attendanceMemosResult.data ?? []).map(mapAttendanceMemo),
   };
 
   return { ok: true, store: normalizeFamilyOpenStore(store) };
@@ -621,6 +663,7 @@ export async function saveFamilyOpenStoreWithClient(supabase: FamilySupabaseClie
     birth_month: teacher.birthMonth ?? null,
     birth_day: teacher.birthDay ?? null,
     phone: optionalText(teacher.phone),
+    is_admin: teacher.isAdmin,
     is_active: teacher.isActive,
     sort_order: index,
   }));
@@ -707,6 +750,11 @@ export async function saveFamilyOpenStoreWithClient(supabase: FamilySupabaseClie
     return { ok: false, message: attendanceError.message };
   }
 
+  const attendanceMemosError = await replaceAttendanceMemos(supabase, normalizedStore);
+  if (attendanceMemosError) {
+    return { ok: false, message: attendanceMemosError.message };
+  }
+
   return { ok: true, message: "" };
 }
 
@@ -735,19 +783,14 @@ export async function saveAttendanceRecordToSupabase(
   return saveAttendanceRecordWithClient(supabase, sessionDate, childId, record, savedAt);
 }
 
-export async function saveAttendanceMemoToSupabase(
-  sessionDate: string,
-  note: string,
-  shareWithPastor: boolean,
-  savedAt: string,
-) {
+export async function saveAttendanceMemoToSupabase(memo: AttendanceMemo) {
   const supabase = createFamilyOpenSupabaseClient();
 
   if (!supabase) {
     return { ok: false, message: "Supabase 환경변수가 설정되지 않았습니다." };
   }
 
-  return saveAttendanceMemoWithClient(supabase, sessionDate, note, shareWithPastor, savedAt);
+  return saveAttendanceMemoWithClient(supabase, memo);
 }
 
 export async function saveFamilyOpenStoreToSupabase(store: FamilyOpenStore) {

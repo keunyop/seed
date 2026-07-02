@@ -12,6 +12,7 @@ import {
   saveFamilyOpenStoreToSupabase,
 } from "@/lib/family/supabase-store";
 import type {
+  AttendanceMemo,
   AttendanceRecord,
   AttendanceSession,
   AttendanceStatus,
@@ -58,6 +59,7 @@ type TeacherInput = {
   classId: string;
   phone?: string;
   photoDataUrl?: string;
+  isAdmin?: boolean;
 };
 
 type AddTeacherInput = TeacherInput;
@@ -72,12 +74,32 @@ type UpdateClassInput = {
   teacherId: string;
 };
 
+type SaveAttendanceMemoInput = {
+  sessionDate: string;
+  classId?: string;
+  teacherId: string;
+  note: string;
+  isSecret: boolean;
+};
+
 function createId(prefix: string) {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return `${prefix}-${crypto.randomUUID()}`;
   }
 
   return `${prefix}-${Date.now().toString(36)}`;
+}
+
+function createUuid() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (character) => {
+    const value = Math.floor(Math.random() * 16);
+    const nibble = character === "x" ? value : (value & 0x3) | 0x8;
+    return nibble.toString(16);
+  });
 }
 
 function getLocalIsoDate() {
@@ -294,6 +316,7 @@ export function useFamilyOpenStore() {
       }
 
       const teacherId = createId("teacher");
+      const hasActiveAdmin = store.teachers.some((teacher) => teacher.isActive && teacher.isAdmin);
       persist({
         ...store,
         teachers: [
@@ -306,6 +329,7 @@ export function useFamilyOpenStore() {
             birthMonth,
             birthDay,
             phone: normalizeOptionalText(input.phone),
+            isAdmin: input.isAdmin ?? !hasActiveAdmin,
             isActive: true,
           },
         ],
@@ -339,6 +363,12 @@ export function useFamilyOpenStore() {
         return { ok: false, message: "반을 선택해 주세요." };
       }
 
+      const nextIsAdmin = input.isAdmin ?? currentTeacher.isAdmin;
+      const activeAdminCount = store.teachers.filter((teacher) => teacher.isActive && teacher.isAdmin).length;
+      if (currentTeacher.isAdmin && !nextIsAdmin && activeAdminCount <= 1) {
+        return { ok: false, message: "관리자는 최소 1명 이상 필요합니다." };
+      }
+
       persist({
         ...store,
         teachers: store.teachers.map((teacher) =>
@@ -351,6 +381,7 @@ export function useFamilyOpenStore() {
                 birthMonth,
                 birthDay,
                 phone: normalizeOptionalText(input.phone),
+                isAdmin: nextIsAdmin,
               }
             : teacher,
         ),
@@ -377,6 +408,11 @@ export function useFamilyOpenStore() {
       const currentTeacher = store.teachers.find((teacher) => teacher.id === teacherId && teacher.isActive);
       if (!currentTeacher) {
         return { ok: false, message: "선생님 정보를 찾을 수 없습니다." };
+      }
+
+      const activeAdminCount = store.teachers.filter((teacher) => teacher.isActive && teacher.isAdmin).length;
+      if (currentTeacher.isAdmin && activeAdminCount <= 1) {
+        return { ok: false, message: "관리자는 최소 1명 이상 필요합니다." };
       }
 
       persist({
@@ -681,42 +717,44 @@ export function useFamilyOpenStore() {
   );
 
   const saveAttendanceMemo = useCallback(
-    async (sessionDate: string, note: string, shareWithPastor: boolean) => {
+    async (input: SaveAttendanceMemoInput) => {
+      const note = input.note.trim();
+      if (!note) {
+        return { ok: false, message: "메모 내용을 입력해 주세요." };
+      }
+
+      if (!store.teachers.some((teacher) => teacher.id === input.teacherId && teacher.isActive)) {
+        return { ok: false, message: "로그인한 선생님 정보를 찾을 수 없습니다." };
+      }
+
+      if (input.classId && !store.classes.some((item) => item.id === input.classId)) {
+        return { ok: false, message: "반을 선택해 주세요." };
+      }
+
       const savedAt = new Date().toISOString();
-      const result = await runRemoteSave(() =>
-        saveAttendanceMemoToSupabase(sessionDate, note, shareWithPastor, savedAt),
-      );
+      const nextMemo: AttendanceMemo = {
+        id: createUuid(),
+        sessionDate: input.sessionDate,
+        classId: input.classId,
+        teacherId: input.teacherId,
+        note,
+        isSecret: input.isSecret,
+        savedAt,
+      };
+      const result = await runRemoteSave(() => saveAttendanceMemoToSupabase(nextMemo));
 
       if (!result.ok) {
         return result;
       }
 
-      setStore((current) => {
-        const session = current.attendanceByDate[sessionDate] ?? {
-          sessionDate,
-          records: {},
-          note: "",
-          shareWithPastor: false,
-          savedAt: "",
-        };
-
-        return {
-          ...current,
-          attendanceByDate: {
-            ...current.attendanceByDate,
-            [sessionDate]: {
-              ...session,
-              note,
-              shareWithPastor,
-              savedAt,
-            },
-          },
-        };
-      });
+      setStore((current) => ({
+        ...current,
+        attendanceMemos: [nextMemo, ...current.attendanceMemos],
+      }));
 
       return result;
     },
-    [runRemoteSave],
+    [runRemoteSave, store.classes, store.teachers],
   );
 
   const saveAttendanceSession = useCallback(

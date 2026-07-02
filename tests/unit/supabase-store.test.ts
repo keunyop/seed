@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createAttendanceMemoInsertRow,
   createAttendanceRecordUpsertRow,
   createAttendanceRecordInsertRows,
   createAttendanceSessionUpsertRow,
@@ -66,6 +67,29 @@ describe("Supabase attendance write helpers", () => {
       child_id: "child-1",
       status: "present",
       qt_completed: true,
+    });
+  });
+
+  it("builds one attendance memo insert row", () => {
+    expect(
+      createAttendanceMemoInsertRow({
+        id: "11111111-1111-4111-8111-111111111111",
+        sessionDate: "2026-06-28",
+        classId: "class-1",
+        teacherId: "teacher-1",
+        note: "반 메모",
+        isSecret: true,
+        savedAt: "2026-06-28T20:00:00.000Z",
+      }),
+    ).toEqual({
+      id: "11111111-1111-4111-8111-111111111111",
+      organization_id: DEFAULT_ORGANIZATION_ID,
+      session_date: "2026-06-28",
+      class_id: "class-1",
+      teacher_id: "teacher-1",
+      note: "반 메모",
+      is_secret: true,
+      saved_at: "2026-06-28T20:00:00.000Z",
     });
   });
 });

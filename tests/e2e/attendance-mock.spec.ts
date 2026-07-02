@@ -41,6 +41,7 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
             birth_month: 1,
             birth_day: 1,
             phone: null,
+            is_admin: true,
             is_active: true,
             sort_order: 0,
             created_at: "2026-06-28T00:00:00.000Z",
@@ -88,6 +89,10 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
         ]);
       }
 
+      if (table === "attendance_memos") {
+        return json([]);
+      }
+
       return json([]);
     }
 
@@ -105,6 +110,10 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/attendance");
+  await expect(page.getByRole("heading", { name: "선생님 로그인" })).toBeVisible();
+  await expect(page.getByLabel("비밀번호")).toBeEnabled();
+  await page.getByLabel("비밀번호").fill("1234");
+  await page.getByRole("button", { name: "로그인" }).click();
   await expect(page.getByRole("heading", { name: "출석 체크" })).toBeVisible();
 
   const row = page.locator("article").filter({ hasText: "아이폰테스트" });
@@ -136,9 +145,10 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
   const recordMutationCountBeforeMemoSave = mutations.filter(
     (item) => item.method === "POST" && item.table === "attendance_records",
   ).length;
+  await page.getByLabel("반").selectOption("class-ios");
   const memoCard = page.locator("section").filter({ has: page.getByRole("heading", { name: "이번 주 메모" }) });
   await memoCard.getByRole("textbox", { name: "이번 주 메모 내용" }).fill("메모만 저장");
-  await memoCard.getByLabel("전도사님 공유").check();
+  await memoCard.getByLabel("비밀").check();
   await memoCard.getByRole("button", { name: "저장" }).click();
   await expect(memoCard.getByText("메모 저장됨")).toBeVisible();
 
@@ -148,12 +158,14 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
   expect(recordMutationCountAfterMemoSave).toBe(recordMutationCountBeforeMemoSave);
   expect(
     mutations
-      .filter((item) => item.method === "POST" && item.table === "attendance_sessions")
+      .filter((item) => item.method === "POST" && item.table === "attendance_memos")
       .at(-1)?.body,
   ).toMatchObject({
     organization_id: ORGANIZATION_ID,
+    class_id: "class-ios",
+    teacher_id: "teacher-ios",
     note: "메모만 저장",
-    share_with_pastor: true,
+    is_secret: true,
   });
 
   const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);

@@ -2,7 +2,8 @@
 
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Camera, Pencil, Plus, Trash2, UserRoundCog, X } from "lucide-react";
+import { Camera, Pencil, Plus, ShieldCheck, Trash2, UserRoundCog, X } from "lucide-react";
+import { useTeacherAuth } from "@/components/domain/teacher-auth-provider";
 import { useFamilyOpenStore } from "@/components/domain/use-family-open-store";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
 import { PressableButton } from "@/components/ui/pressable-button";
@@ -17,6 +18,7 @@ type TeacherFormInput = {
   classId: string;
   phone?: string;
   photoDataUrl?: string;
+  isAdmin?: boolean;
 };
 
 type TeacherDetailModalProps = {
@@ -24,6 +26,7 @@ type TeacherDetailModalProps = {
   isReady: boolean;
   mode: "add" | "edit";
   teacher?: FamilyTeacher;
+  canManageAdmin: boolean;
   onClose: () => void;
   onDelete?: () => { ok: boolean; message: string };
   onSubmit: (input: TeacherFormInput) => { ok: boolean; message: string };
@@ -63,7 +66,16 @@ function getTeacherBirthParts(teacher?: FamilyTeacher) {
   };
 }
 
-function TeacherDetailModal({ store, isReady, mode, teacher, onClose, onDelete, onSubmit }: TeacherDetailModalProps) {
+function TeacherDetailModal({
+  store,
+  isReady,
+  mode,
+  teacher,
+  canManageAdmin,
+  onClose,
+  onDelete,
+  onSubmit,
+}: TeacherDetailModalProps) {
   const teacherClass = teacher ? getTeacherClass(store, teacher) : undefined;
   const initialClassId = useMemo(() => teacherClass?.id ?? "", [teacherClass?.id]);
   const initialBirth = getTeacherBirthParts(teacher);
@@ -73,6 +85,7 @@ function TeacherDetailModal({ store, isReady, mode, teacher, onClose, onDelete, 
   const [birthDay, setBirthDay] = useState(initialBirth.birthDay);
   const [classId, setClassId] = useState(initialClassId);
   const [phone, setPhone] = useState(teacher?.phone ?? "");
+  const [isAdmin, setIsAdmin] = useState(teacher?.isAdmin ?? false);
   const [error, setError] = useState("");
   const [photoStatus, setPhotoStatus] = useState<"idle" | "processing">("idle");
   const [isPhotoMenuOpen, setIsPhotoMenuOpen] = useState(false);
@@ -178,6 +191,7 @@ function TeacherDetailModal({ store, isReady, mode, teacher, onClose, onDelete, 
       classId: selectedClassId,
       phone,
       photoDataUrl,
+      isAdmin: canManageAdmin ? isAdmin : teacher?.isAdmin,
     });
 
     setError(result.message);
@@ -354,6 +368,18 @@ function TeacherDetailModal({ store, isReady, mode, teacher, onClose, onDelete, 
             />
           </label>
 
+          {canManageAdmin ? (
+            <label className="col-span-2 flex min-h-12 items-center gap-3 rounded-[12px] border-2 border-cloud-gray px-3 text-sm font-extrabold text-charcoal">
+              <input
+                checked={isAdmin}
+                className="h-5 w-5 accent-duo-green"
+                onChange={(event) => setIsAdmin(event.target.checked)}
+                type="checkbox"
+              />
+              관리자
+            </label>
+          ) : null}
+
           {error ? (
             <p className="col-span-2 rounded-[12px] bg-[#ffe8e6] p-3 text-sm font-bold text-[#b3261e]" role="alert">
               {error}
@@ -392,6 +418,7 @@ function TeacherDetailModal({ store, isReady, mode, teacher, onClose, onDelete, 
 
 export function TeachersClient() {
   const { store, isReady, addTeacher, updateTeacher, deleteTeacher } = useFamilyOpenStore();
+  const { isAdmin } = useTeacherAuth();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState<FamilyTeacher | null>(null);
   const activeTeachers = store.teachers.filter((teacher) => teacher.isActive);
@@ -442,7 +469,15 @@ export function TeachersClient() {
                         </div>
                       )}
                       <div className="min-w-0">
-                        <h3 className="text-lg font-extrabold text-almost-black">{teacher.name}</h3>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-lg font-extrabold text-almost-black">{teacher.name}</h3>
+                          {teacher.isAdmin ? (
+                            <span className="inline-flex min-h-7 items-center gap-1 rounded-[999px] bg-duo-green-light px-2 text-xs font-extrabold text-duo-green-dark">
+                              <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5" />
+                              관리자
+                            </span>
+                          ) : null}
+                        </div>
                         <p className="mt-1 text-sm font-bold text-graphite">
                           {teacherClass ? getClassLabel(store, teacherClass.id) : "반 미지정"}
                         </p>
@@ -460,6 +495,7 @@ export function TeachersClient() {
 
       {isAddOpen ? (
         <TeacherDetailModal
+          canManageAdmin={isAdmin}
           isReady={isReady}
           mode="add"
           onClose={() => setIsAddOpen(false)}
@@ -470,6 +506,7 @@ export function TeachersClient() {
 
       {selectedTeacher ? (
         <TeacherDetailModal
+          canManageAdmin={isAdmin}
           isReady={isReady}
           mode="edit"
           onClose={() => setSelectedTeacher(null)}

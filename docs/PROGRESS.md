@@ -1,5 +1,36 @@
 # Progress
 
+## 2026-07-02 선생님 로그인, 관리자 지정, 댓글형 비밀 메모
+
+### 완료
+- 전역 `TeacherAuthProvider`를 추가해 활성 선생님 목록과 기본 비밀번호 `1234`로 로그인하도록 했다.
+- 로그인 성공 시 `seed-current-teacher-v1` localStorage 키에 선생님 ID를 저장해 같은 브라우저에서 재로그인을 생략한다.
+- `teachers.is_admin` 필드와 선생님 상세 모달의 관리자 체크박스를 추가했다. 관리자 체크박스는 현재 로그인 선생님이 관리자일 때만 보인다.
+- 기존 데이터에 관리자가 없으면 첫 활성 선생님을 초기 관리자로 지정하는 migration과 정규화 fallback을 추가했다.
+- `attendance_memos` 테이블을 추가하고, 기존 `attendance_sessions.note` 값은 migration에서 댓글형 메모로 1회 복사하도록 했다.
+- 출석 화면의 `전도사님 공유` 라벨을 `비밀`로 변경하고, 메모 저장 시 기존 내용을 덮어쓰지 않고 새 댓글형 메모로 추가하게 했다.
+- 메모 목록은 선택 반 기준으로 필터링하고, 전체 선택 시 전체 메모를 표시하며, 5개씩 페이지 처리한다.
+- 비밀 메모는 작성자와 관리자만 내용을 볼 수 있고, 권한이 없으면 비밀 처리 문구만 보인다.
+- 특정 반의 비밀 메모는 해당 반 담임 선생님만 작성할 수 있게 막았다.
+- MVP 설계 문서에 로그인/관리자/댓글형 메모 기준을 반영했다.
+
+### 검증
+- `pnpm run typecheck`: 통과
+- `pnpm run lint`: PowerShell `pnpm.exe` 접근 거부로 실패
+- `.\node_modules\.bin\eslint.cmd .`: 통과
+- `.\node_modules\.bin\vitest.cmd run`: 5 files, 24 tests 통과
+- `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`: 1 file, 1 test 통과
+- `.\node_modules\.bin\playwright.cmd test tests/e2e/attendance-mock.spec.ts --project=webkit-mobile`: 통과. sandbox에서는 Next dev server 시작이 `Access is denied`로 실패해 권한 상승으로 재실행했다.
+- `pnpm run build`: 통과
+
+### 데이터/배포 영향
+- 새 migration `20260702000100_teacher_auth_and_attendance_memos.sql` 적용이 필요하다.
+- migration 적용 전 배포본은 `attendance_memos` 또는 `teachers.is_admin` 조회/저장에서 실패할 수 있다.
+
+### 남은 위험
+- 전체 `playwright test`는 테스트 초기화가 설정된 원격 Supabase 데이터를 덮어쓰는 구조라 승인 검토에서 차단되어 실행하지 않았다.
+- 현재 앱은 공개 Supabase anon 쓰기 구조를 유지하므로, localStorage 기반 로그인과 관리자 체크는 완전한 서버/RLS 보안 경계가 아니다. 공개 운영 전에는 Supabase Auth/RLS 또는 서버 검증 경로로 전환해야 한다.
+
 ## 2026-06-29 출석/큐티 개별 저장과 메모 전용 저장
 
 ### 완료

@@ -15,6 +15,7 @@ test.beforeEach(async ({ page }) => {
     window.localStorage.setItem(legacyLocalStoreKey, "legacy");
   }, LEGACY_LOCAL_STORE_KEY);
   await page.reload();
+  await loginAsFirstTeacher(page);
 });
 
 function readLocalEnv() {
@@ -72,6 +73,19 @@ async function expectNoAppStateLocalStorage(page: import("@playwright/test").Pag
   expect(storedState).toBeNull();
 }
 
+async function expectTeacherLoginCached(page: import("@playwright/test").Page) {
+  const cachedTeacherId = await page.evaluate(() => window.localStorage.getItem("seed-current-teacher-v1"));
+  expect(cachedTeacherId).toBeTruthy();
+}
+
+async function loginAsFirstTeacher(page: import("@playwright/test").Page) {
+  await expect(page.getByRole("heading", { name: "선생님 로그인" })).toBeVisible();
+  await expect(page.getByLabel("비밀번호")).toBeEnabled();
+  await page.getByLabel("비밀번호").fill("1234");
+  await page.getByRole("button", { name: "로그인" }).click();
+  await expect(page.getByRole("heading", { name: "선생님 로그인" })).toHaveCount(0);
+}
+
 async function waitForSaved(page: import("@playwright/test").Page) {
   await page.waitForLoadState("networkidle");
 }
@@ -111,7 +125,7 @@ async function addClass(
   await expect(page.getByRole("heading", { name: input.className })).toBeVisible();
 }
 
-test("dashboard opens without login and fits the mobile viewport", async ({ page }) => {
+test("dashboard opens after teacher login and fits the mobile viewport", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/dashboard");
 
@@ -122,6 +136,7 @@ test("dashboard opens without login and fits the mobile viewport", async ({ page
   await expect(page.locator("nav")).toBeVisible();
   await expect(page.getByRole("heading", { name: "반 등록" })).toHaveCount(0);
   await expectNoAppStateLocalStorage(page);
+  await expectTeacherLoginCached(page);
   await expectNoHorizontalOverflow(page);
 });
 

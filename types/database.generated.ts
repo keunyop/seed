@@ -36,6 +36,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      attendance_memos: {
+        Row: {
+          id: string;
+          organization_id: string;
+          session_date: string;
+          class_id: string | null;
+          teacher_id: string | null;
+          note: string;
+          is_secret: boolean;
+          saved_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          session_date: string;
+          class_id?: string | null;
+          teacher_id?: string | null;
+          note: string;
+          is_secret?: boolean;
+          saved_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          session_date?: string;
+          class_id?: string | null;
+          teacher_id?: string | null;
+          note?: string;
+          is_secret?: boolean;
+          saved_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       attendance_sessions: {
         Row: {
           id: string;
@@ -256,6 +295,7 @@ export type Database = {
           birth_month: number | null;
           birth_day: number | null;
           phone: string | null;
+          is_admin: boolean;
           is_active: boolean;
           sort_order: number;
           created_at: string;
@@ -270,6 +310,7 @@ export type Database = {
           birth_month?: number | null;
           birth_day?: number | null;
           phone?: string | null;
+          is_admin?: boolean;
           is_active?: boolean;
           sort_order?: number;
           created_at?: string;
@@ -284,6 +325,7 @@ export type Database = {
           birth_month?: number | null;
           birth_day?: number | null;
           phone?: string | null;
+          is_admin?: boolean;
           is_active?: boolean;
           sort_order?: number;
           created_at?: string;

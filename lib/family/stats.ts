@@ -1,4 +1,5 @@
 import type {
+  AttendanceMemo,
   AttendanceRecord,
   AttendanceSession,
   DashboardSummary,
@@ -24,6 +25,14 @@ export function getTeacherName(store: FamilyOpenStore, teacherId?: string) {
   return store.teachers.find((teacher) => teacher.id === teacherId && teacher.isActive)?.name ?? "담임 미지정";
 }
 
+export function getTeacherNameOrUnknown(store: FamilyOpenStore, teacherId?: string) {
+  if (!teacherId) {
+    return "알 수 없는 선생님";
+  }
+
+  return store.teachers.find((teacher) => teacher.id === teacherId)?.name ?? "알 수 없는 선생님";
+}
+
 export function getClassLabel(store: FamilyOpenStore, classId: string) {
   const familyClass = store.classes.find((item) => item.id === classId);
   if (!familyClass) {
@@ -31,6 +40,14 @@ export function getClassLabel(store: FamilyOpenStore, classId: string) {
   }
 
   return `${familyClass.name} · ${getTeacherName(store, familyClass.teacherId)}`;
+}
+
+export function getClassNameOrAll(store: FamilyOpenStore, classId?: string) {
+  if (!classId) {
+    return "전체";
+  }
+
+  return store.classes.find((item) => item.id === classId)?.name ?? "반 미지정";
 }
 
 function compareChildrenByClassAndName(store: FamilyOpenStore) {
@@ -161,6 +178,33 @@ export function getSession(store: FamilyOpenStore, sessionDate: string) {
 
 export function getChildRecord(session: AttendanceSession, childId: string): AttendanceRecord {
   return session.records[childId] ?? { qtCompleted: false };
+}
+
+export function getAttendanceMemosForView(store: FamilyOpenStore, sessionDate: string, classId?: string) {
+  return store.attendanceMemos
+    .filter((memo) => memo.sessionDate === sessionDate)
+    .filter((memo) => !classId || memo.classId === classId)
+    .sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+}
+
+export function canViewAttendanceMemo(memo: AttendanceMemo, currentTeacherId?: string, isAdmin = false) {
+  if (!memo.isSecret) {
+    return true;
+  }
+
+  return isAdmin || (!!currentTeacherId && memo.teacherId === currentTeacherId);
+}
+
+export function canCreateSecretAttendanceMemo(
+  store: FamilyOpenStore,
+  classId: string | undefined,
+  currentTeacherId?: string,
+) {
+  if (!classId || !currentTeacherId) {
+    return false;
+  }
+
+  return store.classes.some((item) => item.id === classId && item.teacherId === currentTeacherId);
 }
 
 export function getMonthlyBirthdays(store: FamilyOpenStore, month: number) {

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Toaster } from "sonner";
+import { TeacherAuthProvider } from "@/components/domain/teacher-auth-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -22,7 +23,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body>
-        {children}
+        <TeacherAuthProvider>{children}</TeacherAuthProvider>
         <SpeedInsights />
         <Toaster richColors position="top-center" />
       </body>

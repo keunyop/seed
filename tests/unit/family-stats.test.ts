@@ -4,6 +4,9 @@ import {
   formatChildBirthDate,
   formatParentRelation,
   formatTeacherBirthDate,
+  canCreateSecretAttendanceMemo,
+  canViewAttendanceMemo,
+  getAttendanceMemosForView,
   getAttendanceRosterChildren,
   getChildRecord,
   getClassLabel,
@@ -140,6 +143,41 @@ describe("family open stats", () => {
 
     expect(getTeacherName(store, "teacher-minji")).toBe("김민지 선생님");
     expect(getClassLabel(store, "class-kindergarten")).toBe("테스트 1반 · 김민지 선생님");
+    expect(store.teachers[0].isAdmin).toBe(true);
+  });
+
+  it("filters attendance memos by selected class and protects secret memo content", () => {
+    const store = createDefaultFamilyOpenStore();
+    store.attendanceMemos = [
+      {
+        id: "memo-1",
+        sessionDate: "2026-06-28",
+        classId: "class-kindergarten",
+        teacherId: "teacher-minji",
+        note: "유치부 비밀",
+        isSecret: true,
+        savedAt: "2026-06-28T20:00:00.000Z",
+      },
+      {
+        id: "memo-2",
+        sessionDate: "2026-06-28",
+        classId: "class-elementary",
+        teacherId: "teacher-daniel",
+        note: "초등부 일반",
+        isSecret: false,
+        savedAt: "2026-06-28T21:00:00.000Z",
+      },
+    ];
+
+    expect(getAttendanceMemosForView(store, "2026-06-28", "class-kindergarten").map((memo) => memo.id)).toEqual([
+      "memo-1",
+    ]);
+    expect(getAttendanceMemosForView(store, "2026-06-28").map((memo) => memo.id)).toEqual(["memo-2", "memo-1"]);
+    expect(canViewAttendanceMemo(store.attendanceMemos[0], "teacher-daniel", false)).toBe(false);
+    expect(canViewAttendanceMemo(store.attendanceMemos[0], "teacher-minji", false)).toBe(true);
+    expect(canViewAttendanceMemo(store.attendanceMemos[0], "teacher-daniel", true)).toBe(true);
+    expect(canCreateSecretAttendanceMemo(store, "class-kindergarten", "teacher-minji")).toBe(true);
+    expect(canCreateSecretAttendanceMemo(store, "class-kindergarten", "teacher-daniel")).toBe(false);
   });
 
   it("sorts children by name by default or by class order", () => {

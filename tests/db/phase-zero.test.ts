@@ -12,6 +12,7 @@ describe("Supabase family open database", () => {
     expect(migrations).toContain("20260626000100_family_open_app_state.sql");
     expect(migrations).toContain("20260626000200_normalized_family_schema.sql");
     expect(migrations).toContain("20260627000100_nullable_child_birth.sql");
+    expect(migrations).toContain("20260702000100_teacher_auth_and_attendance_memos.sql");
 
     const legacyMigration = readFileSync(
       join(process.cwd(), "supabase", "migrations", "20260626000100_family_open_app_state.sql"),
@@ -42,5 +43,15 @@ describe("Supabase family open database", () => {
     );
     expect(nullableBirthMigration).toContain("alter column birth_month drop not null");
     expect(nullableBirthMigration).toContain("alter column birth_day drop not null");
+
+    const teacherAuthMigration = readFileSync(
+      join(process.cwd(), "supabase", "migrations", "20260702000100_teacher_auth_and_attendance_memos.sql"),
+      "utf8",
+    );
+    expect(teacherAuthMigration).toContain("add column if not exists is_admin boolean");
+    expect(teacherAuthMigration).toContain("create table if not exists public.attendance_memos");
+    expect(teacherAuthMigration).toContain("is_secret boolean not null default false");
+    expect(teacherAuthMigration).toContain("alter table public.attendance_memos enable row level security");
+    expect(teacherAuthMigration).toContain("grant select, insert, update, delete on public.attendance_memos");
   });
 });

@@ -7,6 +7,7 @@ export function createEmptyFamilyOpenStore(): FamilyOpenStore {
     classes: [],
     children: [],
     attendanceByDate: {},
+    attendanceMemos: [],
   };
 }
 
@@ -21,6 +22,7 @@ export function createDefaultFamilyOpenStore(): FamilyOpenStore {
         birthMonth: 5,
         birthDay: 10,
         phone: "",
+        isAdmin: true,
         isActive: true,
       },
       {
@@ -30,6 +32,7 @@ export function createDefaultFamilyOpenStore(): FamilyOpenStore {
         birthMonth: 11,
         birthDay: 18,
         phone: "",
+        isAdmin: false,
         isActive: true,
       },
     ],
@@ -79,5 +82,6 @@ export function createDefaultFamilyOpenStore(): FamilyOpenStore {
       },
     ],
     attendanceByDate: {},
+    attendanceMemos: [],
   };
 }

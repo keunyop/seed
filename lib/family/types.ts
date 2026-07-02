@@ -8,6 +8,7 @@ export type FamilyTeacher = {
   birthMonth?: number;
   birthDay?: number;
   phone?: string;
+  isAdmin: boolean;
   isActive: boolean;
 };
 
@@ -59,12 +60,23 @@ export type AttendanceSession = {
   savedAt: string;
 };
 
+export type AttendanceMemo = {
+  id: string;
+  sessionDate: string;
+  classId?: string;
+  teacherId?: string;
+  note: string;
+  isSecret: boolean;
+  savedAt: string;
+};
+
 export type FamilyOpenStore = {
   version: 1;
   teachers: FamilyTeacher[];
   classes: FamilyClass[];
   children: FamilyChild[];
   attendanceByDate: Record<string, AttendanceSession>;
+  attendanceMemos: AttendanceMemo[];
 };
 
 export type DashboardSummary = {
