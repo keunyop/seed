@@ -8,11 +8,11 @@ import {
 } from "@/lib/family/photo-data-url";
 
 describe("photo data URL helpers", () => {
-  it("measures data URL text size against the 500KB storage limit", () => {
+  it("measures data URL text size against the 160KB storage limit", () => {
     const dataUrl = `data:image/jpeg;base64,${"a".repeat(120)}`;
 
     expect(getDataUrlByteSize(dataUrl)).toBe(dataUrl.length);
-    expect(PHOTO_DATA_URL_MAX_BYTES).toBe(500_000);
+    expect(PHOTO_DATA_URL_MAX_BYTES).toBe(160_000);
   });
 
   it("scales the longest image edge while preserving the aspect ratio", () => {

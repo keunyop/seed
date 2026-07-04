@@ -1,7 +1,7 @@
-export const PHOTO_DATA_URL_MAX_BYTES = 500_000;
+export const PHOTO_DATA_URL_MAX_BYTES = 160_000;
 
-const ORIGINAL_FILE_READ_THRESHOLD_BYTES = 360_000;
-const INITIAL_MAX_IMAGE_EDGE = 1024;
+const ORIGINAL_FILE_READ_THRESHOLD_BYTES = 120_000;
+const INITIAL_MAX_IMAGE_EDGE = 640;
 const MIN_IMAGE_EDGE = 240;
 const JPEG_QUALITY_STEPS = [0.82, 0.72, 0.62, 0.52, 0.44, 0.36, 0.3];
 
@@ -145,6 +145,6 @@ export async function preparePhotoDataUrl(file: File): Promise<PreparedPhotoData
 
   return {
     ok: false,
-    message: "사진을 500KB 이하로 줄이지 못했습니다. 더 작은 사진을 선택해 주세요.",
+    message: "사진을 160KB 이하로 줄이지 못했습니다. 더 작은 사진을 선택해 주세요.",
   };
 }

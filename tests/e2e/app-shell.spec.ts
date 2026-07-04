@@ -80,8 +80,7 @@ async function expectTeacherLoginCached(page: import("@playwright/test").Page) {
 
 async function loginAsFirstTeacher(page: import("@playwright/test").Page) {
   await expect(page.getByRole("heading", { name: "선생님 로그인" })).toBeVisible();
-  await expect(page.getByLabel("비밀번호")).toBeEnabled();
-  await page.getByLabel("비밀번호").fill("1234");
+  await expect(page.getByLabel("비밀번호")).toBeDisabled();
   await page.getByRole("button", { name: "로그인" }).click();
   await expect(page.getByRole("heading", { name: "선생님 로그인" })).toHaveCount(0);
 }
@@ -192,21 +191,21 @@ test("Supabase-backed attendance flow supports teacher and class management", as
   await expect(page.getByRole("heading", { name: unassignedClassName })).toBeVisible();
   await page.reload();
   await expect(page.getByRole("heading", { name: unassignedClassName })).toBeVisible();
-  await page.getByRole("button", { name: `${unassignedClassName} 수정` }).click();
+  await page.getByRole("button", { name: `${unassignedClassName} 상세정보 열기` }).click();
   await deleteFromOpenDialog(page);
   await expect(page.getByRole("heading", { name: unassignedClassName })).toHaveCount(0);
 
   await addClass(page, { className, teacherName: editedTeacherName });
   await waitForSaved(page);
 
-  await page.getByRole("button", { name: `${className} 수정` }).click();
+  await page.getByRole("button", { name: `${className} 상세정보 열기` }).click();
   const classDialog = page.getByRole("dialog");
   await classDialog.getByLabel("반 이름").fill(editedClassName);
   await classDialog.getByRole("button", { name: "반 저장" }).click();
   await expect(page.getByRole("heading", { name: editedClassName })).toBeVisible();
 
   await addClass(page, { className: tempClassName, teacherName: editedTeacherName });
-  await page.getByRole("button", { name: `${tempClassName} 수정` }).click();
+  await page.getByRole("button", { name: `${tempClassName} 상세정보 열기` }).click();
   await deleteFromOpenDialog(page);
   await expect(page.getByRole("heading", { name: tempClassName })).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
@@ -293,7 +292,7 @@ test("Supabase-backed attendance flow supports teacher and class management", as
   await expectNoHorizontalOverflow(page);
 
   await page.goto("/settings");
-  await page.getByRole("button", { name: `${editedClassName} 수정` }).click();
+  await page.getByRole("button", { name: `${editedClassName} 상세정보 열기` }).click();
   await deleteFromOpenDialog(page);
   await expect(page.getByRole("heading", { name: editedClassName })).toHaveCount(0);
   await waitForSaved(page);

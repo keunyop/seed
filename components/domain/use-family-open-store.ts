@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { createEmptyFamilyOpenStore } from "@/lib/family/default-store";
 import { isValidBirthMonthDay, parseBirthDateParts } from "@/lib/family/stats";
 import { LEGACY_LOCAL_STORE_KEY } from "@/lib/family/store-persistence";
@@ -160,7 +161,7 @@ function cloneAttendanceRecords(records: AttendanceSession["records"]) {
   );
 }
 
-export function useFamilyOpenStore() {
+function useFamilyOpenStoreState() {
   const [store, setStore] = useState<FamilyOpenStore>(() => createEmptyFamilyOpenStore());
   const [saveState, setSaveState] = useState<SaveState>("loading");
   const [isReady, setIsReady] = useState(false);
@@ -844,4 +845,24 @@ export function useFamilyOpenStore() {
       updateTeacher,
     ],
   );
+}
+
+type FamilyOpenStoreContextValue = ReturnType<typeof useFamilyOpenStoreState>;
+
+const FamilyOpenStoreContext = createContext<FamilyOpenStoreContextValue | null>(null);
+
+export function FamilyOpenStoreProvider({ children }: { children: ReactNode }) {
+  const value = useFamilyOpenStoreState();
+
+  return createElement(FamilyOpenStoreContext.Provider, { value }, children);
+}
+
+export function useFamilyOpenStore() {
+  const value = useContext(FamilyOpenStoreContext);
+
+  if (!value) {
+    throw new Error("useFamilyOpenStore must be used inside FamilyOpenStoreProvider");
+  }
+
+  return value;
 }

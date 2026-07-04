@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Toaster } from "sonner";
+import { FamilyOpenStoreProvider } from "@/components/domain/use-family-open-store";
 import { TeacherAuthProvider } from "@/components/domain/teacher-auth-provider";
 import "./globals.css";
 
@@ -23,7 +24,9 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body>
-        <TeacherAuthProvider>{children}</TeacherAuthProvider>
+        <FamilyOpenStoreProvider>
+          <TeacherAuthProvider>{children}</TeacherAuthProvider>
+        </FamilyOpenStoreProvider>
         <SpeedInsights />
         <Toaster richColors position="top-center" />
       </body>

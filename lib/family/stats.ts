@@ -8,13 +8,28 @@ import type {
   FamilyOpenStore,
   MonthlyQtDetail,
   ParentRelation,
+  FamilyTeacher,
   WeeklyAttendanceDetail,
 } from "@/lib/family/types";
 
 export type ChildrenSortMode = "name" | "class";
 
+const koreanNameCollator = new Intl.Collator("ko-KR", { sensitivity: "base" });
+
 function getClassName(store: FamilyOpenStore, classId: string) {
   return store.classes.find((item) => item.id === classId)?.name ?? "반 미지정";
+}
+
+export function compareKoreanNames(a: { name: string }, b: { name: string }) {
+  return koreanNameCollator.compare(a.name, b.name);
+}
+
+export function sortTeachersByName(teachers: FamilyTeacher[]) {
+  return [...teachers].sort(compareKoreanNames);
+}
+
+export function getActiveTeachersByName(store: FamilyOpenStore) {
+  return sortTeachersByName(store.teachers.filter((teacher) => teacher.isActive));
 }
 
 export function getTeacherName(store: FamilyOpenStore, teacherId?: string) {

@@ -111,8 +111,7 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/attendance");
   await expect(page.getByRole("heading", { name: "선생님 로그인" })).toBeVisible();
-  await expect(page.getByLabel("비밀번호")).toBeEnabled();
-  await page.getByLabel("비밀번호").fill("1234");
+  await expect(page.getByLabel("비밀번호")).toBeDisabled();
   await page.getByRole("button", { name: "로그인" }).click();
   await expect(page.getByRole("heading", { name: "출석 체크" })).toBeVisible();
 

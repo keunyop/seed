@@ -1,12 +1,12 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
-import { Pencil, Plus, Settings, Trash2, UsersRound, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Plus, Settings, Trash2, UsersRound, X } from "lucide-react";
 import { useFamilyOpenStore } from "@/components/domain/use-family-open-store";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
 import { PressableButton } from "@/components/ui/pressable-button";
-import { getTeacherName } from "@/lib/family/stats";
+import { getActiveTeachersByName, getTeacherName } from "@/lib/family/stats";
 import type { FamilyClass, FamilyOpenStore } from "@/lib/family/types";
 
 type ClassDetailModalProps = {
@@ -22,6 +22,7 @@ function ClassDetailModal({ store, isReady, familyClass, onClose, onDelete, onSu
   const [name, setName] = useState(familyClass.name);
   const [teacherId, setTeacherId] = useState(familyClass.teacherId ?? "");
   const [error, setError] = useState("");
+  const activeTeachers = useMemo(() => getActiveTeachersByName(store), [store]);
   const selectedTeacherId = store.teachers.some((teacher) => teacher.id === teacherId && teacher.isActive)
     ? teacherId
     : "";
@@ -108,13 +109,11 @@ function ClassDetailModal({ store, isReady, familyClass, onClose, onDelete, onSu
               value={selectedTeacherId}
             >
               <option value="">담임 미지정</option>
-              {store.teachers
-                .filter((teacher) => teacher.isActive)
-                .map((teacher) => (
-                  <option key={teacher.id} value={teacher.id}>
-                    {teacher.name}
-                  </option>
-                ))}
+              {activeTeachers.map((teacher) => (
+                <option key={teacher.id} value={teacher.id}>
+                  {teacher.name}
+                </option>
+              ))}
             </select>
           </label>
           {error ? (
@@ -158,6 +157,7 @@ export function SettingsClient() {
   const [teacherId, setTeacherId] = useState("");
   const [selectedClass, setSelectedClass] = useState<FamilyClass | null>(null);
   const [error, setError] = useState("");
+  const activeTeachers = useMemo(() => getActiveTeachersByName(store), [store]);
   const selectedTeacherId = store.teachers.some((teacher) => teacher.id === teacherId && teacher.isActive)
     ? teacherId
     : "";
@@ -201,13 +201,11 @@ export function SettingsClient() {
                 value={selectedTeacherId}
               >
                 <option value="">담임 미지정</option>
-                {store.teachers
-                  .filter((teacher) => teacher.isActive)
-                  .map((teacher) => (
-                    <option key={teacher.id} value={teacher.id}>
-                      {teacher.name}
-                    </option>
-                  ))}
+                {activeTeachers.map((teacher) => (
+                  <option key={teacher.id} value={teacher.id}>
+                    {teacher.name}
+                  </option>
+                ))}
               </select>
             </label>
             {error ? (
@@ -228,22 +226,17 @@ export function SettingsClient() {
           </h2>
           <div className="mt-4 grid gap-3">
             {store.classes.map((item) => (
-              <article className="rounded-[12px] border-2 border-cloud-gray p-4" key={item.id}>
+              <button
+                aria-label={`${item.name} 상세정보 열기`}
+                className="rounded-[12px] border-2 border-cloud-gray p-4 text-left transition-colors hover:border-sky-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-blue-text disabled:opacity-60"
+                disabled={!isReady}
+                key={item.id}
+                onClick={() => setSelectedClass(item)}
+                type="button"
+              >
                 <h3 className="text-lg font-extrabold text-almost-black">{item.name}</h3>
                 <p className="mt-1 text-sm font-bold text-graphite">{getTeacherName(store, item.teacherId)}</p>
-                <div className="mt-4">
-                  <button
-                    aria-label={`${item.name} 수정`}
-                    className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[12px] border-2 border-cloud-gray px-3 text-sm font-extrabold text-graphite"
-                    disabled={!isReady}
-                    onClick={() => setSelectedClass(item)}
-                    type="button"
-                  >
-                    <Pencil aria-hidden="true" className="h-4 w-4" />
-                    수정
-                  </button>
-                </div>
-              </article>
+              </button>
             ))}
           </div>
         </section>

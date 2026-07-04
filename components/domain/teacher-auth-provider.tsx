@@ -5,10 +5,10 @@ import { createContext, useContext, useEffect, useMemo, useState, useSyncExterna
 import { LockKeyhole, UserRoundCheck } from "lucide-react";
 import { useFamilyOpenStore } from "@/components/domain/use-family-open-store";
 import { PressableButton } from "@/components/ui/pressable-button";
+import { sortTeachersByName } from "@/lib/family/stats";
 import type { FamilyTeacher } from "@/lib/family/types";
 
 const TEACHER_AUTH_STORAGE_KEY = "seed-current-teacher-v1";
-const DEFAULT_TEACHER_PASSWORD = "1234";
 
 type TeacherAuthContextValue = {
   currentTeacher?: FamilyTeacher;
@@ -83,10 +83,9 @@ function TeacherLoginModal({
 }: {
   activeTeachers: FamilyTeacher[];
   isReady: boolean;
-  onLogin: (teacherId: string, password: string) => { ok: boolean; message: string };
+  onLogin: (teacherId: string) => { ok: boolean; message: string };
 }) {
   const [teacherId, setTeacherId] = useState(activeTeachers[0]?.id ?? "");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const selectedTeacherId = activeTeachers.some((teacher) => teacher.id === teacherId)
     ? teacherId
@@ -103,11 +102,8 @@ function TeacherLoginModal({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const result = onLogin(selectedTeacherId, password);
+    const result = onLogin(selectedTeacherId);
     setError(result.message);
-    if (result.ok) {
-      setPassword("");
-    }
   }
 
   return (
@@ -164,14 +160,11 @@ function TeacherLoginModal({
             <label className="block">
               <span className="text-sm font-extrabold text-charcoal">비밀번호</span>
               <input
-                className="mt-2 min-h-12 w-full rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
-                disabled={!isReady}
-                onChange={(event) => {
-                  setPassword(event.target.value);
-                  setError("");
-                }}
+                className="mt-2 min-h-12 w-full rounded-[12px] border-2 border-cloud-gray bg-[#f7f7f7] px-3 text-base font-bold text-graphite"
+                disabled
+                placeholder="비밀번호 없이 로그인"
                 type="password"
-                value={password}
+                value=""
               />
             </label>
             {error ? (
@@ -179,7 +172,7 @@ function TeacherLoginModal({
                 {error}
               </p>
             ) : null}
-            <PressableButton className="w-full" disabled={!isReady || !selectedTeacherId || !password} type="submit">
+            <PressableButton className="w-full" disabled={!isReady || !selectedTeacherId} type="submit">
               <UserRoundCheck aria-hidden="true" className="h-5 w-5" />
               로그인
             </PressableButton>
@@ -195,10 +188,14 @@ export function TeacherAuthProvider({ children }: { children: ReactNode }) {
   const storedTeacherId = useSyncExternalStore(subscribeTeacherAuth, readCachedTeacherId, () => "");
   const [sessionTeacherId, setSessionTeacherId] = useState("");
   const cachedTeacherId = sessionTeacherId || storedTeacherId;
-  const activeTeachers = useMemo(() => store.teachers.filter((teacher) => teacher.isActive), [store.teachers]);
-  const currentTeacher = activeTeachers.find((teacher) => teacher.id === cachedTeacherId);
-  const isAdmin = getEffectiveAdminState(currentTeacher, activeTeachers);
-  const hasTeachers = activeTeachers.length > 0;
+  const activeTeachersByStoreOrder = useMemo(
+    () => store.teachers.filter((teacher) => teacher.isActive),
+    [store.teachers],
+  );
+  const activeTeachers = useMemo(() => sortTeachersByName(activeTeachersByStoreOrder), [activeTeachersByStoreOrder]);
+  const currentTeacher = activeTeachersByStoreOrder.find((teacher) => teacher.id === cachedTeacherId);
+  const isAdmin = getEffectiveAdminState(currentTeacher, activeTeachersByStoreOrder);
+  const hasTeachers = activeTeachersByStoreOrder.length > 0;
   const isAuthenticated = !hasTeachers || !!currentTeacher;
   const shouldBlock = isReady && hasTeachers && !currentTeacher;
 
@@ -216,13 +213,9 @@ export function TeacherAuthProvider({ children }: { children: ReactNode }) {
     [currentTeacher, isAdmin, isAuthenticated],
   );
 
-  function handleLogin(teacherId: string, password: string) {
+  function handleLogin(teacherId: string) {
     if (!activeTeachers.some((teacher) => teacher.id === teacherId)) {
       return { ok: false, message: "선생님을 선택해 주세요." };
-    }
-
-    if (password !== DEFAULT_TEACHER_PASSWORD) {
-      return { ok: false, message: "비밀번호가 맞지 않습니다." };
     }
 
     writeCachedTeacherId(teacherId);

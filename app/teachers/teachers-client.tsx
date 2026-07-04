@@ -8,7 +8,7 @@ import { useFamilyOpenStore } from "@/components/domain/use-family-open-store";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
 import { PressableButton } from "@/components/ui/pressable-button";
 import { preparePhotoDataUrl } from "@/lib/family/photo-data-url";
-import { formatTeacherBirthDate, getClassLabel, parseBirthDateParts } from "@/lib/family/stats";
+import { formatTeacherBirthDate, getClassLabel, parseBirthDateParts, sortTeachersByName } from "@/lib/family/stats";
 import type { FamilyOpenStore, FamilyTeacher } from "@/lib/family/types";
 
 type TeacherFormInput = {
@@ -421,7 +421,10 @@ export function TeachersClient() {
   const { isAdmin } = useTeacherAuth();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState<FamilyTeacher | null>(null);
-  const activeTeachers = store.teachers.filter((teacher) => teacher.isActive);
+  const activeTeachers = useMemo(
+    () => sortTeachersByName(store.teachers.filter((teacher) => teacher.isActive)),
+    [store.teachers],
+  );
 
   return (
     <main className="min-h-dvh bg-white pb-[calc(88px+var(--safe-bottom))]">
@@ -461,6 +464,8 @@ export function TeachersClient() {
                         <img
                           alt={`${teacher.name} 사진`}
                           className="h-14 w-14 shrink-0 rounded-full border-2 border-cloud-gray object-cover"
+                          decoding="async"
+                          loading="lazy"
                           src={teacher.photoDataUrl}
                         />
                       ) : (

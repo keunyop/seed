@@ -1,5 +1,128 @@
 # Progress
 
+## 2026-07-04 선생님/반 UX와 초기 로딩 성능 개선
+
+### 완료
+- 선생님이 조회되는 주요 목록과 선택 UI를 가나다순으로 정렬했다.
+  - 선생님 로그인 선택 목록
+  - `/teachers` 등록된 선생님 목록
+  - `/settings` 반 등록/수정의 담임 선생님 선택 목록
+- `/settings`의 등록된 반 카드에서 별도 `수정` 버튼을 제거하고, 반 카드 전체 클릭으로 상세/수정 모달을 열도록 변경했다.
+- 선생님 로그인 모달의 비밀번호 입력은 비활성화하고, 선생님 선택 후 바로 로그인되도록 변경했다.
+- 성능 조사 결과, 서버 하드웨어보다 앱 구조와 사진 전송량이 더 직접적인 병목으로 판단했다.
+  - 기존 구조는 전역 로그인 provider와 각 페이지가 `useFamilyOpenStore()`를 따로 실행해 같은 화면에서 Supabase 전체 데이터를 중복 로드했다.
+  - `FamilyOpenStoreProvider`를 추가해 Supabase store를 앱에서 한 번만 로드하고, 로그인 모달과 각 화면이 같은 context를 공유하도록 바꿨다.
+  - 사진은 Data URL로 DB에 저장되므로 아이/선생님 사진이 많아질수록 초기 응답이 커진다. 새로 저장되는 프로필 사진 한도를 500KB에서 160KB로 낮췄고, 선생님 목록 사진에도 lazy loading/async decoding을 적용했다.
+- `docs/MVP_DESIGN_SPEC.md`와 `README.md`를 비밀번호 없는 로그인, 단일 store provider, 가나다순 선생님 목록, 160KB 사진 한도 기준으로 갱신했다.
+
+### 검증
+- `pnpm run typecheck`: 통과
+- `.\node_modules\.bin\vitest.cmd run`: 5 files, 25 tests 통과
+- `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`: 1 file, 1 test 통과
+- `.\node_modules\.bin\eslint.cmd .`: 통과
+- `.\node_modules\.bin\playwright.cmd test tests/e2e/attendance-mock.spec.ts --project=webkit-mobile`: 1 test 통과. sandbox에서 Next dev server 시작이 `Access is denied`로 실패해 권한 상승 후 forward-slash 경로로 재실행했다.
+- `pnpm run build`: 통과
+
+### 데이터/배포 영향
+- DB migration과 환경변수 변경은 없다.
+- 운영 반영에는 재배포가 필요하다.
+- 기존 DB에 이미 저장된 큰 Data URL 사진은 자동으로 작아지지 않는다. 기존 사진까지 줄이려면 운영 데이터 변환 작업 또는 사진 Storage 이전을 별도 승인 후 진행해야 한다.
+
+### 남은 위험
+- 전체 `tests/e2e/app-shell.spec.ts`는 원격 Supabase 상태를 초기화할 수 있어 실행하지 않았다.
+- 현재 선생님 로그인은 편의용 선택 UI이며, 비밀번호 제거 후에도 서버/RLS 보안 경계는 아니다. 공개 운영 전에는 Supabase Auth/RLS 또는 공유 코드 기반 권한 전환이 필요하다.
+
+## 2026-07-02 원본 명단 기반 2~6학년 보호자 정보 복원
+
+### 완료
+- 사용자가 제공한 원본 명단 52행을 운영 Supabase의 기존 아이와 `이름 + 반` 기준으로 매칭했다.
+- dry-run 결과:
+  - 원본 행: 52건
+  - 기존 아이 매칭: 52건
+  - 누락 반/아이/중복 매칭: 0건
+  - 보호자 후보: 82건
+  - 대상 아이에 기존 보호자 row: 0건
+- 복원 실행 결과:
+  - `children` 상세정보 upsert: 52건
+  - `child_parents` 보호자 row insert: 82건
+  - 아이 필드 검증 불일치: 0건
+  - 보호자 검증 누락: 0건
+- 최종 SELECT 검증:
+  - 전체 `child_parents`: 94건
+  - 이번 원본 명단에서 복원한 `parent-roster-*`: 82건
+  - 전체 아이 63명 중 생년월일 전체 blank 처리 아이: 7명
+
+### 보정 규칙
+- 생년월일이 비어 있거나 `00` 월/일처럼 실제 날짜가 아니면 `birth_date`, `birth_year`, `birth_month`, `birth_day`를 모두 비웠다.
+- 등록일이 `YYYY.MM` 또는 `YYYY.MM.` 형식이면 해당 월 1일로 저장했다. 이번 명단에서는 41건이 해당한다.
+- 등록일 `2011/2002`는 유효한 날짜로 해석하지 않고 비웠다.
+
+### 롤백 참고
+- 이번 복원 보호자 row id는 `parent-roster-{child_id}-{mother|father}` 패턴이다.
+- 필요 시 별도 승인 후 이번 대상 52명 child id 범위의 `parent-roster-*` row를 삭제할 수 있다.
+- 아이 상세정보는 원본 명단 기준으로 덮어썼으므로 롤백하려면 복원 전 백업 또는 이전 DB snapshot이 필요하다.
+
+### 남은 위험
+- 재발 방지 코드 수정 전에는 원격 E2E 실행과 아이/선생님/반 전체 저장 계열 작업을 피해야 한다.
+
+## 2026-07-02 legacy 부모 연락처 11건 우선 복원
+
+### 완료
+- 사용자가 승인한 범위대로 `family_open_app_state` legacy JSON 백업의 부모 연락처 11건을 운영 Supabase `child_parents`에 우선 복원했다.
+- 복원 전 dry-run 결과:
+  - 현재 `child_parents`: 1건
+  - legacy 후보: 11건
+  - 현재 row와 정확히 같은 연락처 중복: 0건
+  - id 충돌: 0건
+  - 삽입 대상: 11건
+- 복원 실행 결과:
+  - 삽입: 11건
+  - 복원 후 `child_parents`: 12건
+  - legacy 연락처 존재 검증: 11/11건
+- 기존에 남아 있던 1건은 삭제하지 않고 보존했다. 그래서 총 row 수는 11건이 아니라 12건이다.
+
+### 롤백 참고
+- 이번 복원으로 삽입된 parent id:
+  - `parent-0b3583b8-8fdc-4633-afca-251421dbd3ca`
+  - `parent-35824766-b390-4818-a2c1-32861dc49947`
+  - `parent-5b532a24-2b8b-4ac5-85bf-9d146a05ee50`
+  - `parent-683cf1bd-89b7-4df8-b17c-028a5398a25e`
+  - `parent-84da34d5-f569-4cc1-9f5b-e2d2001e0dc3`
+  - `parent-85b04901-257c-4daf-86b8-8b27e0610b58`
+  - `parent-8be71ef0-0914-41ac-a24a-9b84cbcafbc2`
+  - `parent-9584e5fc-dc00-4fb0-a1c9-a583c73dd3d1`
+  - `parent-bd06a015-054f-4eca-ae74-b028b7dbaba9`
+  - `parent-c08980eb-42ed-44d3-92fe-fd8c9881373e`
+  - `parent-f41fe022-2b73-4a7d-9a7b-e23a0b550143`
+
+### 남은 위험
+- 2026-06-27에 등록된 보호자 82건 전체 복구에는 Supabase 백업/PITR 또는 원본 명단 파일이 필요하다.
+- 재발 방지 코드 수정 전에는 원격 E2E 실행과 아이/선생님/반 전체 저장 계열 작업을 피해야 한다.
+
+## 2026-07-02 부모님 정보 손실 조사
+
+### 확인
+- 운영 Supabase를 읽기 전용으로 조회했다. `children` 63명 중 `child_parents`는 1건만 남아 있고, 그 1건도 2026-07-02 17:25:40 UTC에 생성된 기록이다.
+- `teachers`, `classes`, `children`, `child_parents`, `attendance_sessions`, `attendance_records`, `attendance_memos`의 `updated_at`이 모두 2026-07-02 17:25:39~40 UTC 한 시점으로 맞춰져 있었다. 개별 아이 수정이 아니라 전체 store 저장 경로가 실행된 흔적으로 판단한다.
+- 코드상 직접 원인은 `lib/family/supabase-store.ts`의 `replaceChildParents`다. 이 함수는 `child_parents`를 조직 단위로 전체 삭제한 뒤 현재 store의 `children[*].parents`만 다시 insert한다. 부모 배열이 비어 있거나 일부만 있는 store가 저장되면 기존 부모 정보가 사라진다.
+- `tests/e2e/app-shell.spec.ts`의 `resetRemoteStore()`도 `.env.local`의 Supabase에 `createDefaultFamilyOpenStore()`를 저장한다. 기본 store의 아이들은 `parents: []`라서 이 E2E가 운영 DB에 연결되면 부모 테이블을 비울 수 있다.
+- 현재 DB에는 E2E에서 만든 것으로 보이는 테스트 아이 이름과 기본 더미 아이가 남아 있어, 원격 DB에 테스트/전체 저장 계열 작업이 실행된 정황이 있다.
+
+### 복원 가능성
+- `family_open_app_state` legacy JSON 백업에는 2026-06-26 21:39:07 UTC 기준 7명/11건의 부모 연락처가 남아 있다. 이 11건은 승인 후 복원 스크립트로 `child_parents`에 재삽입 가능하다.
+- 진행 기록상 2026-06-27에 45명/77건, 이후 7명/5건의 보호자 정보가 등록됐지만, 개인정보 원본이 담긴 임시 스크립트는 검증 후 삭제됐다. 현재 repo 안에서는 그 82건의 전체 원본을 찾지 못했다.
+- 전체 복원을 하려면 Supabase 프로젝트의 백업/PITR, DB 관리자 권한으로 보는 삭제 전 시점 복구, 또는 사용자가 가진 원본 명단 파일이 필요하다. 현재 Codex가 가진 publishable key만으로는 삭제된 row 이력을 조회할 수 없다.
+
+### 즉시 피해야 할 작업
+- `pnpm run test:e2e` 또는 `tests/e2e/app-shell.spec.ts` 실행 금지. 이 테스트는 원격 Supabase를 초기화할 수 있다.
+- 운영 Supabase에 `saveFamilyOpenStoreWithClient(...createDefaultFamilyOpenStore())` 또는 전체 store 저장 스크립트 실행 금지.
+- 부모 정보 복원 전/보호 로직 반영 전에는 운영 화면에서 아이, 선생님, 반 정보를 수정하는 전체 저장 계열 작업을 피한다. 출석/큐티 개별 저장과 메모 전용 저장은 별도 경로지만, 의심되는 브라우저 세션은 새로고침 후 사용한다.
+
+### 다음 단계
+- 사용자가 승인하면 먼저 legacy JSON의 11건만 복원할 수 있다.
+- 82건 전체 복원을 원하면 Supabase 대시보드에서 2026-07-02 17:25:39 UTC 직전 백업/PITR 가능 여부를 확인하거나, 원본 명단 파일을 제공해야 한다.
+- 재발 방지를 위해 `replaceChildParents`를 전체 삭제 방식에서 아이 단위/부모 행 단위 upsert-delete로 바꾸고, E2E가 운영 `.env.local`에 연결되면 중단되도록 보호 장치를 추가해야 한다.
+
 ## 2026-07-02 선생님 로그인, 관리자 지정, 댓글형 비밀 메모
 
 ### 완료

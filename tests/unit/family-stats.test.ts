@@ -18,6 +18,7 @@ import {
   isValidBirthMonthDay,
   parseBirthDateParts,
   sortChildrenForRoster,
+  sortTeachersByName,
 } from "@/lib/family/stats";
 import { normalizeFamilyOpenStore } from "@/lib/family/store-persistence";
 
@@ -144,6 +145,26 @@ describe("family open stats", () => {
     expect(getTeacherName(store, "teacher-minji")).toBe("김민지 선생님");
     expect(getClassLabel(store, "class-kindergarten")).toBe("테스트 1반 · 김민지 선생님");
     expect(store.teachers[0].isAdmin).toBe(true);
+  });
+
+  it("sorts teachers by Korean name without mutating the source list", () => {
+    const store = createDefaultFamilyOpenStore();
+    const teachers = [
+      { ...store.teachers[1], name: "최하늘 선생님" },
+      { ...store.teachers[0], name: "김가람 선생님" },
+      { ...store.teachers[1], id: "teacher-park", name: "박다은 선생님" },
+    ];
+
+    expect(sortTeachersByName(teachers).map((teacher) => teacher.name)).toEqual([
+      "김가람 선생님",
+      "박다은 선생님",
+      "최하늘 선생님",
+    ]);
+    expect(teachers.map((teacher) => teacher.name)).toEqual([
+      "최하늘 선생님",
+      "김가람 선생님",
+      "박다은 선생님",
+    ]);
   });
 
   it("filters attendance memos by selected class and protects secret memo content", () => {
