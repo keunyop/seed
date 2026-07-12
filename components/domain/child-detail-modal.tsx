@@ -105,6 +105,7 @@ export function ChildDetailModal({
   const [notes, setNotes] = useState(child?.notes ?? "");
   const [error, setError] = useState("");
   const [isPhotoProcessing, setIsPhotoProcessing] = useState(false);
+  const [isPhotoViewerOpen, setIsPhotoViewerOpen] = useState(false);
 
   const selectedClassId = classes.some((item) => item.id === classId) ? classId : "";
 
@@ -113,7 +114,7 @@ export function ChildDetailModal({
     document.body.style.overflow = "hidden";
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && !isPhotoViewerOpen) {
         onClose();
       }
     }
@@ -123,7 +124,7 @@ export function ChildDetailModal({
       document.body.style.overflow = originalOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [onClose]);
+  }, [isPhotoViewerOpen, onClose]);
 
   function updateParentField(parentId: string, field: "relation" | "name" | "phone", value: string) {
     setParents((current) =>
@@ -181,9 +182,11 @@ export function ChildDetailModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end bg-almost-black/40 sm:items-center sm:p-4">
       <section
+        aria-hidden={isPhotoViewerOpen || undefined}
         aria-labelledby="child-detail-title"
         aria-modal="true"
         className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[12px] bg-white p-4 sm:mx-auto sm:max-w-[720px] sm:rounded-[12px] sm:p-6"
+        inert={isPhotoViewerOpen}
         role="dialog"
       >
         <div className="flex items-center justify-between gap-3">
@@ -205,8 +208,10 @@ export function ChildDetailModal({
             <ProfilePhotoPicker
               onPhotoDataUrlChange={setPhotoDataUrl}
               onProcessingChange={setIsPhotoProcessing}
+              onViewerOpenChange={setIsPhotoViewerOpen}
               photoDataUrl={photoDataUrl}
               preview={<ChildAvatar gender={gender} name={name} photoDataUrl={photoDataUrl} size="lg" />}
+              previewLabel={`${name.trim() || "아이"} 사진`}
             />
           </div>
 

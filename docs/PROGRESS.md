@@ -1,5 +1,46 @@
 # Progress
 
+## 2026-07-12 사진 큰보기, 최근/전체 통계, 관리자 메모 확인
+
+### 제품 기준
+- 출석 화면은 초록색 반 선택 select만 유지하고 별도 `현재 선택 반` 영역은 표시하지 않는다.
+- 각 통계 카드는 독립적으로 `최근/전체`를 전환한다. 최근은 출석 최근 4주와 큐티·생일 최근 4개월, 전체는 2026년 7월~2027년 6월 고정 범위다.
+- 전체 출석은 기간 안의 52개 일요일, 큐티·생일은 12개월을 라인그래프로 표시하며 전체 그래프에서는 상세 모달을 열지 않는다.
+- 월 큐티 완료자는 해당 월 큐티 기록이 3회 이상인 활성 아이로 정의한다.
+- 통계 비밀 메모 본문은 관리자만 보고, 메모 확인 상태는 모든 관리자가 공유하는 체크 상태로 저장한다.
+
+### 완료
+- `/attendance`에서 별도 `현재 선택 반` 배지를 제거하고 초록색 select 강조는 유지했다. 전체 반에서 하단 메모를 숨기는 기존 동작도 유지했다.
+- 아이·선생님 상세의 공통 사진 UI에서 `사진`, `현재 사진 미리보기`, `등록된 사진 없음`과 바깥 삭제 버튼을 제거했다.
+- 저장된 사진을 누르면 body portal 큰보기가 열리고, 큰보기 안에서 사진 삭제·닫기를 할 수 있게 했다. 큰보기 focus trap·Escape·부모 모달 비활성화·닫은 뒤 focus 복원도 적용했다.
+- 통계의 설명 문구를 줄이고 각 카드에 독립 `최근/전체` 토글을 추가했다.
+  - 최근: 4개 클릭형 막대그래프
+  - 전체: 2026-07~2027-06 비클릭 SVG 라인그래프
+- 통계 상세 아바타 보기에는 사진/기본 아바타만 표시하고 목록 보기에는 이름과 세부 정보를 유지했다.
+- 월 큐티 완료자 집계를 3회 이상으로 변경하고, 원시 월별 상세 helper와 대시보드의 기존 1회 기준은 회귀를 피하도록 유지했다.
+- 월별 생일 카드에 생일 미입력 활성 아이 수·목록을 추가하고 목록에서 아이 상세 수정 모달을 열 수 있게 했다.
+- 통계 통합 메모의 비밀 본문은 관리자만 보도록 분리했다.
+- 관리자용 메모 확인 체크와 미확인 개수를 추가했다. 확인/해제는 `organization_id + memo id`로 제한된 별도 PATCH를 사용한다.
+- `attendance_memos`에 `acknowledged_at`, `acknowledged_by_teacher_id`와 미확인 partial index를 추가하는 `20260712000100_attendance_memo_acknowledgements.sql` migration 및 generated type을 추가했다.
+- 전체 store 메모 upsert에는 확인 필드를 넣지 않아 오래된 브라우저 상태가 최신 확인 상태를 덮어쓰지 않게 했다.
+
+### 검증
+- `tsc --noEmit`: 통과
+- 전체 ESLint: 통과
+- 전체 단위/컴포넌트 테스트: 8 files, 50 tests 통과
+- DB migration 테스트: 1 file, 1 test 통과
+- production build: 통과
+- `tests/e2e/attendance-mock.spec.ts --project=webkit-mobile`: 1 test 통과
+- `tests/e2e/reports-mock.spec.ts --project=chromium-mobile`: 1 test 통과
+- `tests/e2e/reports-mock.spec.ts --project=webkit-mobile`: 1 test 통과
+- `git diff --check`: 통과
+
+### 데이터/배포 영향과 사용자 작업
+- 앱 배포 전에 `supabase/migrations/20260712000100_attendance_memo_acknowledgements.sql`을 운영 Supabase에 먼저 적용해야 한다. Codex는 현재 작업공간의 migration 파일만 만들었으며 운영 DB에는 직접 적용하지 않았다.
+- migration 전에 새 클라이언트를 배포하면 메모 목록은 읽을 수 있어도 관리자 확인 저장 PATCH가 실패한다.
+- 실제 iPhone Safari/홈 화면 앱의 카메라 호출은 데스크톱 WebKit으로 완전히 재현할 수 없다. 배포 후 아이·선생님 각각 `사진 찍기 → 미리보기 → 저장 → 새로고침 유지`를 실제 기기에서 확인해야 한다.
+- 현재 공개 anon DB와 localStorage 선생님 로그인 구조에서는 비밀 본문과 관리자 확인 권한이 서버/RLS로 완전히 강제되지 않는다. 실제 보안 경계는 Supabase Auth/RLS 전환 작업이 필요하다.
+
 ## 2026-07-11 출석 반 강조, iPhone 사진 촬영, 통계 그래프·통합 메모 개편
 
 ### 제품 기준

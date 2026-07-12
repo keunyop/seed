@@ -88,6 +88,7 @@ function TeacherDetailModal({
   const [isAdmin, setIsAdmin] = useState(teacher?.isAdmin ?? false);
   const [error, setError] = useState("");
   const [isPhotoProcessing, setIsPhotoProcessing] = useState(false);
+  const [isPhotoViewerOpen, setIsPhotoViewerOpen] = useState(false);
   const selectedClassId = store.classes.some((item) => item.id === classId) ? classId : "";
   const dayLimit = getMonthDayLimit(birthMonth);
   const dayOptions = Array.from({ length: dayLimit }, (_, index) => index + 1);
@@ -98,7 +99,7 @@ function TeacherDetailModal({
     document.body.style.overflow = "hidden";
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && !isPhotoViewerOpen) {
         onClose();
       }
     }
@@ -108,7 +109,7 @@ function TeacherDetailModal({
       document.body.style.overflow = originalOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [onClose]);
+  }, [isPhotoViewerOpen, onClose]);
 
   function handleBirthMonthChange(value: string) {
     const nextMonth = Number(value);
@@ -154,9 +155,11 @@ function TeacherDetailModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end bg-almost-black/40 sm:items-center sm:p-4">
       <section
+        aria-hidden={isPhotoViewerOpen || undefined}
         aria-labelledby="teacher-detail-title"
         aria-modal="true"
         className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[12px] bg-white p-4 sm:mx-auto sm:max-w-[640px] sm:rounded-[12px] sm:p-6"
+        inert={isPhotoViewerOpen}
         role="dialog"
       >
         <div className="flex items-center justify-between gap-3">
@@ -178,6 +181,7 @@ function TeacherDetailModal({
             <ProfilePhotoPicker
               onPhotoDataUrlChange={setPhotoDataUrl}
               onProcessingChange={setIsPhotoProcessing}
+              onViewerOpenChange={setIsPhotoViewerOpen}
               photoDataUrl={photoDataUrl}
               preview={
                 <span
@@ -193,6 +197,7 @@ function TeacherDetailModal({
                   )}
                 </span>
               }
+              previewLabel={`${name.trim() || "선생님"} 사진`}
             />
           </div>
 

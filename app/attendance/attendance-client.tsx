@@ -282,7 +282,6 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
             <label className="block min-w-0">
               <span className="text-sm font-extrabold text-charcoal">반</span>
               <select
-                aria-describedby="selected-class-badge"
                 className="mt-2 min-h-12 w-full max-w-full min-w-0 rounded-[12px] border-2 border-duo-green bg-duo-green-light/40 px-3 text-base font-extrabold text-almost-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-duo-green"
                 disabled={isContextLocked}
                 onChange={(event) => {
@@ -302,17 +301,6 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
                 ))}
               </select>
             </label>
-          </div>
-          <div
-            aria-live="polite"
-            className="mt-4 flex min-h-12 flex-wrap items-center gap-2 rounded-[12px] border-2 border-duo-green bg-duo-green-light px-4 py-2"
-            id="selected-class-badge"
-            role="status"
-          >
-            <span className="text-sm font-extrabold text-charcoal">현재 선택 반</span>
-            <strong className="rounded-full bg-duo-green px-3 py-1 text-base font-extrabold text-almost-black">
-              {selectedClassId ? getClassNameOrAll(store, selectedClassId) : "전체 반"}
-            </strong>
           </div>
         </header>
 

@@ -7,16 +7,20 @@ import {
   canCreateSecretAttendanceMemo,
   canViewAttendanceMemo,
   getAllAttendanceMemosLatestFirst,
+  getActiveChildrenWithoutBirthday,
   getAttendanceMemosForView,
   getAttendanceRosterChildren,
   getChildRecord,
   getClassLabel,
   getDashboardSummary,
   getMonthlyQtDetails,
+  getMonthlyBirthdayBuckets,
+  getMonthlyQtBuckets,
   getRecentWeeklyAttendanceBuckets,
   getSession,
   getTeacherName,
   getWeeklyAttendanceDetails,
+  getWeeklyAttendanceBuckets,
   getYearlyBirthdayBuckets,
   getYearlyQtBuckets,
   isValidBirthMonthDay,
@@ -150,6 +154,25 @@ describe("family open stats", () => {
     expect(buckets[7]).toMatchObject({ presentCount: 0, attendees: [] });
   });
 
+  it("builds a generic weekly attendance range from its starting Sunday", () => {
+    const store = createDefaultFamilyOpenStore();
+    store.attendanceByDate["2026-07-12"] = {
+      sessionDate: "2026-07-12",
+      note: "",
+      savedAt: "2026-07-12T20:00:00.000Z",
+      records: {
+        "child-harin": { status: "present", qtCompleted: false },
+        "child-joon": { status: "absent", qtCompleted: false },
+      },
+    };
+
+    const buckets = getWeeklyAttendanceBuckets(store, "2026-07-05", 3);
+
+    expect(buckets.map((bucket) => bucket.sessionDate)).toEqual(["2026-07-05", "2026-07-12", "2026-07-19"]);
+    expect(buckets.map((bucket) => bucket.presentCount)).toEqual([0, 1, 0]);
+    expect(() => getWeeklyAttendanceBuckets(store, "2026-07-06", 3)).toThrow("must be a Sunday");
+  });
+
   it("builds twelve qt buckets with unique participants, per-child completions, totals, and empty months", () => {
     const store = createDefaultFamilyOpenStore();
     store.children[2] = { ...store.children[2], isActive: false };
@@ -201,6 +224,75 @@ describe("family open stats", () => {
     expect(buckets[11]).toMatchObject({ participantCount: 0, totalCompletions: 0, participants: [] });
   });
 
+  it("builds cross-year monthly qt buckets and applies a minimum completion count", () => {
+    const store = createDefaultFamilyOpenStore();
+    store.attendanceByDate = {
+      "2026-07-05": {
+        sessionDate: "2026-07-05",
+        note: "",
+        savedAt: "2026-07-05T20:00:00.000Z",
+        records: {
+          "child-harin": { qtCompleted: true },
+          "child-joon": { qtCompleted: true },
+        },
+      },
+      "2026-07-12": {
+        sessionDate: "2026-07-12",
+        note: "",
+        savedAt: "2026-07-12T20:00:00.000Z",
+        records: {
+          "child-harin": { qtCompleted: true },
+          "child-joon": { qtCompleted: true },
+        },
+      },
+      "2026-07-19": {
+        sessionDate: "2026-07-19",
+        note: "",
+        savedAt: "2026-07-19T20:00:00.000Z",
+        records: { "child-harin": { qtCompleted: true } },
+      },
+      "2027-01-03": {
+        sessionDate: "2027-01-03",
+        note: "",
+        savedAt: "2027-01-03T20:00:00.000Z",
+        records: { "child-yuna": { qtCompleted: true } },
+      },
+      "2027-01-10": {
+        sessionDate: "2027-01-10",
+        note: "",
+        savedAt: "2027-01-10T20:00:00.000Z",
+        records: { "child-yuna": { qtCompleted: true } },
+      },
+      "2027-01-17": {
+        sessionDate: "2027-01-17",
+        note: "",
+        savedAt: "2027-01-17T20:00:00.000Z",
+        records: { "child-yuna": { qtCompleted: true } },
+      },
+    };
+
+    const buckets = getMonthlyQtBuckets(store, 2026, 7, 12, 3);
+
+    expect(buckets).toHaveLength(12);
+    expect(buckets.map(({ year, month }) => `${year}-${month}`)).toEqual([
+      "2026-7",
+      "2026-8",
+      "2026-9",
+      "2026-10",
+      "2026-11",
+      "2026-12",
+      "2027-1",
+      "2027-2",
+      "2027-3",
+      "2027-4",
+      "2027-5",
+      "2027-6",
+    ]);
+    expect(buckets[0]).toMatchObject({ participantCount: 1, totalCompletions: 3 });
+    expect(buckets[0].participants.map((item) => item.child.id)).toEqual(["child-harin"]);
+    expect(buckets[6].participants.map((item) => item.child.id)).toEqual(["child-yuna"]);
+  });
+
   it("builds all twelve birthday buckets from active children only", () => {
     const store = createDefaultFamilyOpenStore();
     store.children[2] = { ...store.children[2], isActive: false };
@@ -219,6 +311,42 @@ describe("family open stats", () => {
     expect(buckets[5].children.map((child) => child.id)).toEqual(["child-harin"]);
     expect(buckets[8].children.map((child) => child.id)).toEqual(["child-joon"]);
     expect(buckets[0]).toMatchObject({ birthdayCount: 0, children: [] });
+  });
+
+  it("builds cross-year birthday buckets and finds active children without a valid birthday", () => {
+    const store = createDefaultFamilyOpenStore();
+    store.children.push(
+      {
+        id: "child-no-birthday",
+        name: "생일미정",
+        classId: "class-elementary",
+        isActive: true,
+      },
+      {
+        id: "child-invalid-birthday",
+        name: "생일오류",
+        classId: "class-kindergarten",
+        birthMonth: 2,
+        birthDay: 30,
+        isActive: true,
+      },
+      {
+        id: "child-inactive-no-birthday",
+        name: "비활성",
+        classId: "class-kindergarten",
+        isActive: false,
+      },
+    );
+
+    const buckets = getMonthlyBirthdayBuckets(store, 2026, 7, 12);
+
+    expect(buckets).toHaveLength(12);
+    expect(buckets[2]).toMatchObject({ year: 2026, month: 9, birthdayCount: 1 });
+    expect(buckets[11]).toMatchObject({ year: 2027, month: 6, birthdayCount: 2 });
+    expect(getActiveChildrenWithoutBirthday(store).map((child) => child.id)).toEqual([
+      "child-invalid-birthday",
+      "child-no-birthday",
+    ]);
   });
 
   it("normalizes parent relation and formats its label", () => {

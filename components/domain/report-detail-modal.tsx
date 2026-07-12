@@ -18,10 +18,12 @@ type ReportDetailModalProps = {
   items: ReportPersonItem[];
   copyText: string;
   summary?: string;
+  initialViewMode?: ViewMode;
+  onItemSelect?: (item: ReportPersonItem) => void;
   onClose: () => void;
 };
 
-type ViewMode = "grid" | "list";
+export type ViewMode = "grid" | "list";
 
 export function ReportDetailModal({
   title,
@@ -29,9 +31,11 @@ export function ReportDetailModal({
   items,
   copyText,
   summary,
+  initialViewMode = "grid",
+  onItemSelect,
   onClose,
 }: ReportDetailModalProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
   const [copied, setCopied] = useState(false);
   const dialogRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -177,39 +181,71 @@ export function ReportDetailModal({
           </p>
         ) : viewMode === "grid" ? (
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {items.map((item) => (
-              <article
-                className="flex min-w-0 flex-col items-center rounded-[12px] border-2 border-cloud-gray p-3 text-center"
-                key={item.id}
-              >
+            {items.map((item) => {
+              const avatar = (
                 <ChildAvatar
                   gender={item.child.gender}
                   name={item.child.name}
                   photoDataUrl={item.child.photoDataUrl}
                   size="lg"
                 />
-                <h3 className="mt-2 max-w-full truncate text-base font-extrabold text-almost-black">
-                  {item.child.name}
-                </h3>
-                <p className="mt-1 break-words text-xs font-bold leading-4 text-graphite">{item.meta}</p>
-              </article>
-            ))}
+              );
+
+              return onItemSelect ? (
+                <button
+                  aria-label={`${item.child.name} 상세정보 보기`}
+                  className="flex min-h-24 min-w-0 items-center justify-center rounded-[12px] border-2 border-cloud-gray p-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-blue-text"
+                  key={item.id}
+                  onClick={() => onItemSelect(item)}
+                  type="button"
+                >
+                  {avatar}
+                </button>
+              ) : (
+                <article
+                  className="flex min-h-24 min-w-0 items-center justify-center rounded-[12px] border-2 border-cloud-gray p-3"
+                  key={item.id}
+                >
+                  {avatar}
+                </article>
+              );
+            })}
           </div>
         ) : (
           <div className="mt-4 grid gap-3">
-            {items.map((item) => (
-              <article className="flex min-w-0 items-center gap-3 rounded-[12px] border-2 border-cloud-gray p-3" key={item.id}>
-                <ChildAvatar
-                  gender={item.child.gender}
-                  name={item.child.name}
-                  photoDataUrl={item.child.photoDataUrl}
-                />
-                <div className="min-w-0">
-                  <h3 className="truncate text-lg font-extrabold text-almost-black">{item.child.name}</h3>
-                  <p className="break-words text-sm font-bold text-graphite">{item.meta}</p>
-                </div>
-              </article>
-            ))}
+            {items.map((item) => {
+              const content = (
+                <>
+                  <ChildAvatar
+                    gender={item.child.gender}
+                    name={item.child.name}
+                    photoDataUrl={item.child.photoDataUrl}
+                  />
+                  <span className="min-w-0">
+                    <span className="block truncate text-lg font-extrabold text-almost-black">{item.child.name}</span>
+                    <span className="block break-words text-sm font-bold text-graphite">{item.meta}</span>
+                  </span>
+                </>
+              );
+
+              return onItemSelect ? (
+                <button
+                  className="flex min-w-0 items-center gap-3 rounded-[12px] border-2 border-cloud-gray p-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-blue-text"
+                  key={item.id}
+                  onClick={() => onItemSelect(item)}
+                  type="button"
+                >
+                  {content}
+                </button>
+              ) : (
+                <article
+                  className="flex min-w-0 items-center gap-3 rounded-[12px] border-2 border-cloud-gray p-3"
+                  key={item.id}
+                >
+                  {content}
+                </article>
+              );
+            })}
           </div>
         )}
       </section>

@@ -125,9 +125,8 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
   await expect(page.getByRole("heading", { name: "출석 체크" })).toBeVisible();
 
   const classSelect = page.getByRole("combobox", { name: "반", exact: true });
-  const selectedClassBadge = page.locator("#selected-class-badge");
   await expect(classSelect).toHaveClass(/border-duo-green/);
-  await expect(selectedClassBadge).toContainText("전체 반");
+  await expect(page.getByText("현재 선택 반", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "이번 주 메모" })).toHaveCount(0);
 
   const row = page.locator("article").filter({ hasText: "아이폰테스트" });
@@ -160,18 +159,18 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
     (item) => item.method === "POST" && item.table === "attendance_records",
   ).length;
   await classSelect.selectOption("class-ios");
-  await expect(selectedClassBadge).toContainText("아이폰반");
+  await expect(classSelect).toHaveValue("class-ios");
   const memoCard = page.locator("section").filter({ has: page.getByRole("heading", { name: "이번 주 메모" }) });
   await memoCard.getByRole("textbox", { name: "이번 주 메모 내용" }).fill("아이폰반 작성 중");
   await classSelect.selectOption("all");
-  await expect(selectedClassBadge).toContainText("전체 반");
+  await expect(classSelect).toHaveValue("all");
   await expect(page.getByRole("heading", { name: "이번 주 메모" })).toHaveCount(0);
   await classSelect.selectOption("class-other");
-  await expect(selectedClassBadge).toContainText("다른반");
+  await expect(classSelect).toHaveValue("class-other");
   await expect(memoCard.getByRole("textbox", { name: "이번 주 메모 내용" })).toHaveValue("");
   await memoCard.getByRole("textbox", { name: "이번 주 메모 내용" }).fill("다른반 작성 중");
   await classSelect.selectOption("class-ios");
-  await expect(selectedClassBadge).toContainText("아이폰반");
+  await expect(classSelect).toHaveValue("class-ios");
   await expect(memoCard.getByRole("textbox", { name: "이번 주 메모 내용" })).toHaveValue("아이폰반 작성 중");
   await classSelect.selectOption("class-other");
   await expect(memoCard.getByRole("textbox", { name: "이번 주 메모 내용" })).toHaveValue("다른반 작성 중");

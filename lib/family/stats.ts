@@ -239,13 +239,38 @@ export function canCreateSecretAttendanceMemo(
 
 export function getMonthlyBirthdays(store: FamilyOpenStore, month: number) {
   return getActiveChildren(store)
-    .filter((child) => child.birthMonth === month && child.birthDay)
+    .filter((child) => getChildBirthdayMonthDay(child)?.month === month)
     .sort(
       (a, b) =>
-        (a.birthDay ?? 0) - (b.birthDay ?? 0) ||
+        (getChildBirthdayMonthDay(a)?.day ?? 0) - (getChildBirthdayMonthDay(b)?.day ?? 0) ||
         getClassName(store, a.classId).localeCompare(getClassName(store, b.classId), "ko") ||
         a.name.localeCompare(b.name, "ko"),
     );
+}
+
+function getChildBirthdayMonthDay(child: FamilyChild) {
+  if (typeof child.birthMonth === "number" && typeof child.birthDay === "number") {
+    if (isValidBirthMonthDay(child.birthMonth, child.birthDay)) {
+      return { month: child.birthMonth, day: child.birthDay };
+    }
+  }
+
+  if (child.birthDate) {
+    const parsed = parseBirthDateParts(child.birthDate);
+    if (parsed) {
+      return { month: parsed.month, day: parsed.day };
+    }
+  }
+
+  return null;
+}
+
+export function getActiveChildrenWithoutBirthday(store: FamilyOpenStore) {
+  return sortChildrenForRoster(
+    getActiveChildren(store).filter((child) => !getChildBirthdayMonthDay(child)),
+    store.classes,
+    "class",
+  );
 }
 
 export function getWeeklyAttendanceDetails(store: FamilyOpenStore, sessionDate: string): WeeklyAttendanceDetail[] {
@@ -311,20 +336,42 @@ function shiftIsoDate(isoDate: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
-export function getRecentWeeklyAttendanceBuckets(
+function assertPositiveInteger(value: number, name: string) {
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`${name} must be a positive integer.`);
+  }
+}
+
+function assertCalendarMonth(month: number) {
+  if (!Number.isInteger(month) || month < 1 || month > 12) {
+    throw new Error("Month must be an integer from 1 to 12.");
+  }
+}
+
+function shiftCalendarMonth(year: number, month: number, offset: number) {
+  const zeroBasedMonth = month - 1 + offset;
+  const shiftedYear = year + Math.floor(zeroBasedMonth / 12);
+  const shiftedMonth = ((zeroBasedMonth % 12) + 12) % 12;
+  assertCalendarYear(shiftedYear);
+  return { year: shiftedYear, month: shiftedMonth + 1 };
+}
+
+export function getWeeklyAttendanceBuckets(
   store: FamilyOpenStore,
-  referenceDate: string,
-  weekCount = RECENT_ATTENDANCE_WEEK_COUNT,
+  startSunday: string,
+  weekCount: number,
 ): WeeklyAttendanceBucket[] {
-  if (!Number.isInteger(weekCount) || weekCount < 1) {
-    throw new Error("Week count must be a positive integer.");
+  assertPositiveInteger(weekCount, "Week count");
+  const start = new Date(`${startSunday}T00:00:00.000Z`);
+  if (Number.isNaN(start.getTime()) || start.toISOString().slice(0, 10) !== startSunday) {
+    throw new Error("Start Sunday must be a valid ISO date.");
+  }
+  if (start.getUTCDay() !== 0) {
+    throw new Error("Start Sunday must be a Sunday.");
   }
 
-  const latestSunday = getNearestWeekdayDate(referenceDate, 0);
-
   return Array.from({ length: weekCount }, (_, index) => {
-    const weeksBeforeLatest = weekCount - index - 1;
-    const sessionDate = shiftIsoDate(latestSunday, weeksBeforeLatest * -7);
+    const sessionDate = shiftIsoDate(startSunday, index * 7);
     const attendees = getWeeklyAttendanceDetails(store, sessionDate).filter((item) => item.status === "present");
 
     return {
@@ -335,13 +382,36 @@ export function getRecentWeeklyAttendanceBuckets(
   });
 }
 
-export function getYearlyQtBuckets(store: FamilyOpenStore, year: number): MonthlyQtBucket[] {
-  assertCalendarYear(year);
-  const yearDate = `${String(year).padStart(4, "0")}-01-01`;
+export function getRecentWeeklyAttendanceBuckets(
+  store: FamilyOpenStore,
+  referenceDate: string,
+  weekCount = RECENT_ATTENDANCE_WEEK_COUNT,
+): WeeklyAttendanceBucket[] {
+  assertPositiveInteger(weekCount, "Week count");
 
-  return Array.from({ length: 12 }, (_, index) => {
-    const month = index + 1;
-    const participants = getMonthlyQtDetails(store, yearDate, month);
+  const latestSunday = getNearestWeekdayDate(referenceDate, 0);
+  const startSunday = shiftIsoDate(latestSunday, (weekCount - 1) * -7);
+  return getWeeklyAttendanceBuckets(store, startSunday, weekCount);
+}
+
+export function getMonthlyQtBuckets(
+  store: FamilyOpenStore,
+  startYear: number,
+  startMonth: number,
+  monthCount: number,
+  minimumCompletions = 1,
+): MonthlyQtBucket[] {
+  assertCalendarYear(startYear);
+  assertCalendarMonth(startMonth);
+  assertPositiveInteger(monthCount, "Month count");
+  assertPositiveInteger(minimumCompletions, "Minimum completions");
+
+  return Array.from({ length: monthCount }, (_, index) => {
+    const { year, month } = shiftCalendarMonth(startYear, startMonth, index);
+    const yearDate = `${String(year).padStart(4, "0")}-01-01`;
+    const participants = getMonthlyQtDetails(store, yearDate, month).filter(
+      (item) => item.completions >= minimumCompletions,
+    );
 
     return {
       year,
@@ -353,11 +423,18 @@ export function getYearlyQtBuckets(store: FamilyOpenStore, year: number): Monthl
   });
 }
 
-export function getYearlyBirthdayBuckets(store: FamilyOpenStore, year: number): MonthlyBirthdayBucket[] {
-  assertCalendarYear(year);
+export function getMonthlyBirthdayBuckets(
+  store: FamilyOpenStore,
+  startYear: number,
+  startMonth: number,
+  monthCount: number,
+): MonthlyBirthdayBucket[] {
+  assertCalendarYear(startYear);
+  assertCalendarMonth(startMonth);
+  assertPositiveInteger(monthCount, "Month count");
 
-  return Array.from({ length: 12 }, (_, index) => {
-    const month = index + 1;
+  return Array.from({ length: monthCount }, (_, index) => {
+    const { year, month } = shiftCalendarMonth(startYear, startMonth, index);
     const children = getMonthlyBirthdays(store, month);
 
     return {
@@ -367,6 +444,14 @@ export function getYearlyBirthdayBuckets(store: FamilyOpenStore, year: number): 
       children,
     };
   });
+}
+
+export function getYearlyQtBuckets(store: FamilyOpenStore, year: number): MonthlyQtBucket[] {
+  return getMonthlyQtBuckets(store, year, 1, 12);
+}
+
+export function getYearlyBirthdayBuckets(store: FamilyOpenStore, year: number): MonthlyBirthdayBucket[] {
+  return getMonthlyBirthdayBuckets(store, year, 1, 12);
 }
 
 export function getDashboardSummary(store: FamilyOpenStore, sessionDate: string, month: number): DashboardSummary {

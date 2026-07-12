@@ -6,12 +6,14 @@ import {
   createAttendanceSessionUpsertRow,
   createAttendanceSessionTouchRow,
   DEFAULT_ORGANIZATION_ID,
+  setAttendanceMemoAcknowledgementWithClient,
   saveFamilyOpenStoreWithClient,
 } from "@/lib/family/supabase-store";
 import type { AttendanceSession, FamilyOpenStore } from "@/lib/family/types";
 
 type RecordedMutation = {
-  operation: "delete" | "insert" | "upsert";
+  operation: "delete" | "insert" | "update" | "upsert";
+  filters?: Array<[string, unknown]>;
   options?: unknown;
   table: string;
   value?: unknown;
@@ -35,6 +37,21 @@ function createSupabaseClientMock() {
         select() {
           return {
             eq: async () => ({ data: [], error: null }),
+          };
+        },
+        update(value: unknown) {
+          const mutation: RecordedMutation = { operation: "update", table, value, filters: [] };
+          mutations.push(mutation);
+          return {
+            eq(column: string, filterValue: unknown) {
+              mutation.filters?.push([column, filterValue]);
+              return {
+                eq: async (nextColumn: string, nextFilterValue: unknown) => {
+                  mutation.filters?.push([nextColumn, nextFilterValue]);
+                  return { data: null, error: null };
+                },
+              };
+            },
           };
         },
         upsert: async (value: unknown, options?: unknown) => {
@@ -135,6 +152,51 @@ describe("Supabase attendance write helpers", () => {
     });
   });
 
+  it("patches only one organization-scoped memo acknowledgement and supports clearing it", async () => {
+    const { client, mutations } = createSupabaseClientMock();
+    const memoId = "11111111-1111-4111-8111-111111111111";
+
+    await expect(
+      setAttendanceMemoAcknowledgementWithClient(
+        client,
+        memoId,
+        "2026-07-12T20:00:00.000Z",
+        "teacher-admin",
+      ),
+    ).resolves.toEqual({ ok: true, message: "" });
+    await expect(setAttendanceMemoAcknowledgementWithClient(client, memoId)).resolves.toEqual({
+      ok: true,
+      message: "",
+    });
+
+    expect(mutations.filter((mutation) => mutation.operation === "update")).toEqual([
+      {
+        operation: "update",
+        table: "attendance_memos",
+        value: {
+          acknowledged_at: "2026-07-12T20:00:00.000Z",
+          acknowledged_by_teacher_id: "teacher-admin",
+        },
+        filters: [
+          ["organization_id", DEFAULT_ORGANIZATION_ID],
+          ["id", memoId],
+        ],
+      },
+      {
+        operation: "update",
+        table: "attendance_memos",
+        value: {
+          acknowledged_at: null,
+          acknowledged_by_teacher_id: null,
+        },
+        filters: [
+          ["organization_id", DEFAULT_ORGANIZATION_ID],
+          ["id", memoId],
+        ],
+      },
+    ]);
+  });
+
   it("upserts known memos without deleting memos created by another client", async () => {
     const { client, mutations } = createSupabaseClientMock();
     const store: FamilyOpenStore = {
@@ -151,6 +213,8 @@ describe("Supabase attendance write helpers", () => {
           teacherId: "teacher-1",
           note: "기존 store에 있는 메모",
           isSecret: false,
+          acknowledgedAt: "2026-07-12T20:00:00.000Z",
+          acknowledgedByTeacherId: "teacher-admin",
           savedAt: "2026-06-28T20:00:00.000Z",
         },
       ],

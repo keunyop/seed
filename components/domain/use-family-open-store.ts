@@ -9,6 +9,7 @@ import {
   saveAttendanceMemoToSupabase,
   saveAttendanceRecordToSupabase,
   loadFamilyOpenStoreFromSupabase,
+  setAttendanceMemoAcknowledgementInSupabase,
   saveAttendanceSessionToSupabase,
   saveFamilyOpenStoreToSupabase,
 } from "@/lib/family/supabase-store";
@@ -758,6 +759,48 @@ function useFamilyOpenStoreState() {
     [runRemoteSave, store.classes, store.teachers],
   );
 
+  const setAttendanceMemoAcknowledged = useCallback(
+    async (memoId: string, acknowledged: boolean, teacherId: string) => {
+      if (!store.attendanceMemos.some((memo) => memo.id === memoId)) {
+        return { ok: false, message: "메모를 찾을 수 없습니다." };
+      }
+
+      if (
+        !store.teachers.some(
+          (teacher) => teacher.id === teacherId && teacher.isActive && teacher.isAdmin,
+        )
+      ) {
+        return { ok: false, message: "관리자만 메모를 확인 처리할 수 있습니다." };
+      }
+
+      const acknowledgedAt = acknowledged ? new Date().toISOString() : undefined;
+      const acknowledgedByTeacherId = acknowledged ? teacherId : undefined;
+      const result = await runRemoteSave(() =>
+        setAttendanceMemoAcknowledgementInSupabase(
+          memoId,
+          acknowledgedAt,
+          acknowledgedByTeacherId,
+        ),
+      );
+
+      if (!result.ok) {
+        return result;
+      }
+
+      setStore((current) => ({
+        ...current,
+        attendanceMemos: current.attendanceMemos.map((memo) =>
+          memo.id === memoId
+            ? { ...memo, acknowledgedAt, acknowledgedByTeacherId }
+            : memo,
+        ),
+      }));
+
+      return result;
+    },
+    [runRemoteSave, store.attendanceMemos, store.teachers],
+  );
+
   const saveAttendanceSession = useCallback(
     async (
       sessionDate: string,
@@ -822,6 +865,7 @@ function useFamilyOpenStoreState() {
       setSessionNote,
       saveAttendanceRecord,
       saveAttendanceMemo,
+      setAttendanceMemoAcknowledged,
       saveAttendanceSession,
     }),
     [
@@ -834,6 +878,7 @@ function useFamilyOpenStoreState() {
       isReady,
       saveAttendanceMemo,
       saveAttendanceRecord,
+      setAttendanceMemoAcknowledged,
       saveAttendanceSession,
       saveState,
       setAllAttendance,

@@ -127,6 +127,8 @@ function mapAttendanceMemo(row: AttendanceMemoRow): AttendanceMemo {
     teacherId: row.teacher_id ?? undefined,
     note: row.note,
     isSecret: row.is_secret,
+    acknowledgedAt: fromNullableText(row.acknowledged_at),
+    acknowledgedByTeacherId: fromNullableText(row.acknowledged_by_teacher_id),
     savedAt: row.saved_at,
   };
 }
@@ -533,6 +535,28 @@ export async function saveAttendanceMemoWithClient(
   return { ok: true, message: "" };
 }
 
+export async function setAttendanceMemoAcknowledgementWithClient(
+  supabase: FamilySupabaseClient,
+  memoId: string,
+  acknowledgedAt?: string,
+  acknowledgedByTeacherId?: string,
+): Promise<RemoteWriteResult> {
+  const { error } = await supabase
+    .from("attendance_memos")
+    .update({
+      acknowledged_at: optionalDate(acknowledgedAt),
+      acknowledged_by_teacher_id: optionalText(acknowledgedByTeacherId),
+    })
+    .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+    .eq("id", memoId);
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+
+  return { ok: true, message: "" };
+}
+
 export function isFamilyOpenSupabaseConfigured() {
   return createFamilyOpenSupabaseClient() !== null;
 }
@@ -782,6 +806,25 @@ export async function saveAttendanceMemoToSupabase(memo: AttendanceMemo) {
   }
 
   return saveAttendanceMemoWithClient(supabase, memo);
+}
+
+export async function setAttendanceMemoAcknowledgementInSupabase(
+  memoId: string,
+  acknowledgedAt?: string,
+  acknowledgedByTeacherId?: string,
+) {
+  const supabase = createFamilyOpenSupabaseClient();
+
+  if (!supabase) {
+    return { ok: false, message: "Supabase 환경변수가 설정되지 않았습니다." };
+  }
+
+  return setAttendanceMemoAcknowledgementWithClient(
+    supabase,
+    memoId,
+    acknowledgedAt,
+    acknowledgedByTeacherId,
+  );
 }
 
 export async function saveFamilyOpenStoreToSupabase(store: FamilyOpenStore) {

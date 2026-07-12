@@ -45,6 +45,8 @@ export type Database = {
           teacher_id: string | null;
           note: string;
           is_secret: boolean;
+          acknowledged_at: string | null;
+          acknowledged_by_teacher_id: string | null;
           saved_at: string;
           created_at: string;
           updated_at: string;
@@ -57,6 +59,8 @@ export type Database = {
           teacher_id?: string | null;
           note: string;
           is_secret?: boolean;
+          acknowledged_at?: string | null;
+          acknowledged_by_teacher_id?: string | null;
           saved_at?: string;
           created_at?: string;
           updated_at?: string;
@@ -69,6 +73,8 @@ export type Database = {
           teacher_id?: string | null;
           note?: string;
           is_secret?: boolean;
+          acknowledged_at?: string | null;
+          acknowledged_by_teacher_id?: string | null;
           saved_at?: string;
           created_at?: string;
           updated_at?: string;

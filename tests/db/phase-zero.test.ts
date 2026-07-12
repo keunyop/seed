@@ -13,6 +13,7 @@ describe("Supabase family open database", () => {
     expect(migrations).toContain("20260626000200_normalized_family_schema.sql");
     expect(migrations).toContain("20260627000100_nullable_child_birth.sql");
     expect(migrations).toContain("20260702000100_teacher_auth_and_attendance_memos.sql");
+    expect(migrations).toContain("20260712000100_attendance_memo_acknowledgements.sql");
 
     const legacyMigration = readFileSync(
       join(process.cwd(), "supabase", "migrations", "20260626000100_family_open_app_state.sql"),
@@ -53,5 +54,14 @@ describe("Supabase family open database", () => {
     expect(teacherAuthMigration).toContain("is_secret boolean not null default false");
     expect(teacherAuthMigration).toContain("alter table public.attendance_memos enable row level security");
     expect(teacherAuthMigration).toContain("grant select, insert, update, delete on public.attendance_memos");
+
+    const memoAcknowledgementsMigration = readFileSync(
+      join(process.cwd(), "supabase", "migrations", "20260712000100_attendance_memo_acknowledgements.sql"),
+      "utf8",
+    );
+    expect(memoAcknowledgementsMigration).toContain("add column if not exists acknowledged_at timestamptz");
+    expect(memoAcknowledgementsMigration).toContain("add column if not exists acknowledged_by_teacher_id text");
+    expect(memoAcknowledgementsMigration).toContain("references public.teachers(id) on delete set null");
+    expect(memoAcknowledgementsMigration).toContain("where acknowledged_at is null");
   });
 });

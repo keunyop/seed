@@ -33,7 +33,10 @@ describe("ProfilePhotoPicker", () => {
     expect(albumInput).toHaveAttribute("type", "file");
     expect(albumInput).toHaveAttribute("accept", "image/*");
     expect(albumInput).not.toHaveAttribute("capture");
-    expect(screen.getByText("등록된 사진 없음")).toBeInTheDocument();
+    expect(screen.queryByText("사진", { exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByText("등록된 사진 없음")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /사진 크게 보기/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "사진 삭제" })).not.toBeInTheDocument();
   });
 
   it("processes a selected photo and reports the resulting data URL", async () => {
@@ -65,20 +68,81 @@ describe("ProfilePhotoPicker", () => {
     expect(onProcessingChange).toHaveBeenLastCalledWith(false);
   });
 
-  it("keeps the preview and exposes an accessible photo delete action", () => {
+  it("opens the current photo in a focused viewer and only exposes delete inside it", async () => {
     const onPhotoDataUrlChange = vi.fn();
+    const onViewerOpenChange = vi.fn();
     render(
       <ProfilePhotoPicker
         onPhotoDataUrlChange={onPhotoDataUrlChange}
+        onViewerOpenChange={onViewerOpenChange}
+        photoDataUrl="data:image/jpeg;base64,cGhvdG8="
+        preview={<span aria-label="현재 사진" role="img" />}
+        previewLabel="민준 사진"
+      />,
+    );
+
+    expect(screen.getByRole("img", { name: "현재 사진" })).toBeInTheDocument();
+    expect(screen.queryByText("현재 사진 미리보기")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "사진 삭제" })).not.toBeInTheDocument();
+
+    const previewButton = screen.getByRole("button", { name: "민준 사진 크게 보기" });
+    fireEvent.click(previewButton);
+
+    const viewer = screen.getByRole("dialog", { name: "민준 사진 크게 보기" });
+    expect(viewer).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "민준 사진" })).toHaveAttribute(
+      "src",
+      "data:image/jpeg;base64,cGhvdG8=",
+    );
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "사진 크게 보기 닫기" })).toHaveFocus();
+      expect(onViewerOpenChange).toHaveBeenCalledWith(true);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "사진 삭제" }));
+    expect(onPhotoDataUrlChange).toHaveBeenCalledWith("");
+    expect(screen.queryByRole("dialog", { name: "민준 사진 크게 보기" })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(onViewerOpenChange).toHaveBeenLastCalledWith(false);
+      expect(previewButton).toHaveFocus();
+    });
+  });
+
+  it("traps focus in the photo viewer and closes only the viewer with Escape", async () => {
+    const onViewerOpenChange = vi.fn();
+    render(
+      <ProfilePhotoPicker
+        onPhotoDataUrlChange={vi.fn()}
+        onViewerOpenChange={onViewerOpenChange}
         photoDataUrl="data:image/jpeg;base64,cGhvdG8="
         preview={<span aria-label="현재 사진" role="img" />}
       />,
     );
 
-    expect(screen.getByRole("img", { name: "현재 사진" })).toBeInTheDocument();
-    expect(screen.getByText("현재 사진 미리보기")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "사진 삭제" }));
-    expect(onPhotoDataUrlChange).toHaveBeenCalledWith("");
+    const previewButton = screen.getByRole("button", { name: "사진 크게 보기" });
+    fireEvent.click(previewButton);
+
+    const closeButton = screen.getByRole("button", { name: "사진 크게 보기 닫기" });
+    const deleteButton = screen.getByRole("button", { name: "사진 삭제" });
+    await waitFor(() => expect(closeButton).toHaveFocus());
+
+    deleteButton.focus();
+    fireEvent.keyDown(window, { key: "Tab" });
+    expect(closeButton).toHaveFocus();
+
+    fireEvent.keyDown(window, { key: "Tab", shiftKey: true });
+    expect(deleteButton).toHaveFocus();
+
+    const outerEscapeHandler = vi.fn();
+    window.addEventListener("keydown", outerEscapeHandler);
+    fireEvent.keyDown(window, { key: "Escape" });
+    window.removeEventListener("keydown", outerEscapeHandler);
+    expect(outerEscapeHandler).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog", { name: "사진 크게 보기" })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(onViewerOpenChange).toHaveBeenLastCalledWith(false);
+      expect(previewButton).toHaveFocus();
+    });
   });
 
   it("shows photo processing errors beside the picker", async () => {

@@ -67,6 +67,8 @@ export type AttendanceMemo = {
   teacherId?: string;
   note: string;
   isSecret: boolean;
+  acknowledgedAt?: string;
+  acknowledgedByTeacherId?: string;
   savedAt: string;
 };
 
