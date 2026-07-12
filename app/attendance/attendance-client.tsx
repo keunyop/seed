@@ -36,15 +36,21 @@ type AttendanceDraft = {
   isMemoDirty: boolean;
 };
 
-type AttendanceDraftState = {
-  key: string;
-  draft: AttendanceDraft;
-};
+type AttendanceDraftState = Record<string, AttendanceDraft>;
 
 type RecordSaveState = "idle" | "saving" | "saved" | "error";
 type MemoSaveFeedback = "idle" | "saved" | "error";
 
 const ALL_CLASSES_VALUE = "all";
+
+export function updateAttendanceDraftForContext(
+  current: AttendanceDraftState,
+  contextKey: string,
+  fallback: AttendanceDraft,
+  recipe: (draft: AttendanceDraft) => AttendanceDraft,
+) {
+  return { ...current, [contextKey]: recipe(current[contextKey] ?? fallback) };
+}
 
 function getLocalIsoDate() {
   const date = new Date();
@@ -121,7 +127,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
   );
   const classNameById = useMemo(() => new Map(store.classes.map((item) => [item.id, item.name])), [store.classes]);
   const session = useMemo(() => getSession(store, sessionDate), [sessionDate, store]);
-  const sessionKey = `${sessionDate}:${isReady ? "ready" : "loading"}`;
+  const sessionKey = `${sessionDate}:${selectedClassValue}:${isReady ? "ready" : "loading"}`;
   const freshDraft = useMemo<AttendanceDraft>(() => ({
     sessionDate,
     sessionKey,
@@ -130,8 +136,8 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
     shareWithPastor: false,
     isMemoDirty: false,
   }), [session.records, sessionDate, sessionKey]);
-  const [draftState, setDraftState] = useState<AttendanceDraftState>(() => ({ key: sessionKey, draft: freshDraft }));
-  const activeDraft = draftState.key === sessionKey ? draftState.draft : freshDraft;
+  const [draftState, setDraftState] = useState<AttendanceDraftState>(() => ({ [sessionKey]: freshDraft }));
+  const activeDraft = draftState[sessionKey] ?? freshDraft;
   const visibleMemos = useMemo(
     () => getAttendanceMemosForView(store, sessionDate, selectedClassId),
     [selectedClassId, sessionDate, store],
@@ -143,10 +149,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
   const isContextLocked = !isReady || !isAuthenticated || isSavingAnyRecord || isSavingMemo;
 
   function setActiveDraft(recipe: (current: AttendanceDraft) => AttendanceDraft) {
-    setDraftState((current) => {
-      const currentDraft = current.key === sessionKey ? current.draft : freshDraft;
-      return { key: sessionKey, draft: recipe(currentDraft) };
-    });
+    setDraftState((current) => updateAttendanceDraftForContext(current, sessionKey, freshDraft, recipe));
   }
   const presentCount = useMemo(
     () =>
@@ -279,7 +282,8 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
             <label className="block min-w-0">
               <span className="text-sm font-extrabold text-charcoal">반</span>
               <select
-                className="mt-2 min-h-12 w-full max-w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-3 text-base font-bold text-almost-black"
+                aria-describedby="selected-class-badge"
+                className="mt-2 min-h-12 w-full max-w-full min-w-0 rounded-[12px] border-2 border-duo-green bg-duo-green-light/40 px-3 text-base font-extrabold text-almost-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-duo-green"
                 disabled={isContextLocked}
                 onChange={(event) => {
                   setRecordSaveStateByChildId({});
@@ -298,6 +302,17 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
                 ))}
               </select>
             </label>
+          </div>
+          <div
+            aria-live="polite"
+            className="mt-4 flex min-h-12 flex-wrap items-center gap-2 rounded-[12px] border-2 border-duo-green bg-duo-green-light px-4 py-2"
+            id="selected-class-badge"
+            role="status"
+          >
+            <span className="text-sm font-extrabold text-charcoal">현재 선택 반</span>
+            <strong className="rounded-full bg-duo-green px-3 py-1 text-base font-extrabold text-almost-black">
+              {selectedClassId ? getClassNameOrAll(store, selectedClassId) : "전체 반"}
+            </strong>
           </div>
         </header>
 
@@ -405,7 +420,8 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
           )}
         </section>
 
-        <section className="mt-4 rounded-[12px] border-2 border-cloud-gray p-4 sm:p-6">
+        {selectedClassId ? (
+          <section className="mt-4 rounded-[12px] border-2 border-cloud-gray p-4 sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-extrabold text-almost-black">이번 주 메모</h2>
             <label className="inline-flex min-h-11 items-center gap-2 text-sm font-extrabold text-charcoal">
@@ -531,7 +547,8 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
               </div>
             ) : null}
           </div>
-        </section>
+          </section>
+        ) : null}
       </div>
       {selectedChild ? (
         <ChildDetailModal

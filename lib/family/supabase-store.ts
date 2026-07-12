@@ -418,22 +418,13 @@ async function replaceAttendance(supabase: FamilySupabaseClient, store: FamilyOp
   return error;
 }
 
-async function replaceAttendanceMemos(supabase: FamilySupabaseClient, store: FamilyOpenStore) {
-  const { error: deleteError } = await supabase
-    .from("attendance_memos")
-    .delete()
-    .eq("organization_id", DEFAULT_ORGANIZATION_ID);
-
-  if (deleteError) {
-    return deleteError;
-  }
-
+async function upsertAttendanceMemos(supabase: FamilySupabaseClient, store: FamilyOpenStore) {
   const memoRows = store.attendanceMemos.map(createAttendanceMemoInsertRow);
   if (memoRows.length === 0) {
     return null;
   }
 
-  const { error } = await supabase.from("attendance_memos").insert(memoRows);
+  const { error } = await supabase.from("attendance_memos").upsert(memoRows, { onConflict: "id" });
   return error;
 }
 
@@ -750,7 +741,7 @@ export async function saveFamilyOpenStoreWithClient(supabase: FamilySupabaseClie
     return { ok: false, message: attendanceError.message };
   }
 
-  const attendanceMemosError = await replaceAttendanceMemos(supabase, normalizedStore);
+  const attendanceMemosError = await upsertAttendanceMemos(supabase, normalizedStore);
   if (attendanceMemosError) {
     return { ok: false, message: attendanceMemosError.message };
   }

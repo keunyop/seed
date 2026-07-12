@@ -6,15 +6,19 @@ import {
   formatTeacherBirthDate,
   canCreateSecretAttendanceMemo,
   canViewAttendanceMemo,
+  getAllAttendanceMemosLatestFirst,
   getAttendanceMemosForView,
   getAttendanceRosterChildren,
   getChildRecord,
   getClassLabel,
   getDashboardSummary,
   getMonthlyQtDetails,
+  getRecentWeeklyAttendanceBuckets,
   getSession,
   getTeacherName,
   getWeeklyAttendanceDetails,
+  getYearlyBirthdayBuckets,
+  getYearlyQtBuckets,
   isValidBirthMonthDay,
   parseBirthDateParts,
   sortChildrenForRoster,
@@ -113,6 +117,110 @@ describe("family open stats", () => {
     expect(qtDetails).toEqual([]);
   });
 
+  it("builds eight Sunday attendance buckets across a year boundary with zero weeks and present active children only", () => {
+    const store = createDefaultFamilyOpenStore();
+    store.children[0] = { ...store.children[0], isActive: false };
+    store.attendanceByDate["2026-12-27"] = {
+      sessionDate: "2026-12-27",
+      note: "",
+      savedAt: "2026-12-27T20:00:00.000Z",
+      records: {
+        "child-harin": { status: "present", qtCompleted: false },
+        "child-joon": { status: "present", qtCompleted: false },
+        "child-yuna": { status: "absent", qtCompleted: true },
+      },
+    };
+
+    const buckets = getRecentWeeklyAttendanceBuckets(store, "2027-01-02");
+
+    expect(buckets).toHaveLength(8);
+    expect(buckets.map((bucket) => bucket.sessionDate)).toEqual([
+      "2026-11-15",
+      "2026-11-22",
+      "2026-11-29",
+      "2026-12-06",
+      "2026-12-13",
+      "2026-12-20",
+      "2026-12-27",
+      "2027-01-03",
+    ]);
+    expect(buckets[0]).toMatchObject({ presentCount: 0, attendees: [] });
+    expect(buckets[6].presentCount).toBe(1);
+    expect(buckets[6].attendees.map((item) => item.child.id)).toEqual(["child-joon"]);
+    expect(buckets[7]).toMatchObject({ presentCount: 0, attendees: [] });
+  });
+
+  it("builds twelve qt buckets with unique participants, per-child completions, totals, and empty months", () => {
+    const store = createDefaultFamilyOpenStore();
+    store.children[2] = { ...store.children[2], isActive: false };
+    store.attendanceByDate = {
+      "2025-12-28": {
+        sessionDate: "2025-12-28",
+        note: "",
+        savedAt: "2025-12-28T20:00:00.000Z",
+        records: { "child-harin": { qtCompleted: true } },
+      },
+      "2026-01-04": {
+        sessionDate: "2026-01-04",
+        note: "",
+        savedAt: "2026-01-04T20:00:00.000Z",
+        records: {
+          "child-harin": { qtCompleted: true },
+          "child-joon": { qtCompleted: true },
+          "child-yuna": { qtCompleted: true },
+        },
+      },
+      "2026-01-11": {
+        sessionDate: "2026-01-11",
+        note: "",
+        savedAt: "2026-01-11T20:00:00.000Z",
+        records: { "child-harin": { qtCompleted: true } },
+      },
+      "2027-01-03": {
+        sessionDate: "2027-01-03",
+        note: "",
+        savedAt: "2027-01-03T20:00:00.000Z",
+        records: { "child-joon": { qtCompleted: true } },
+      },
+    };
+
+    const buckets = getYearlyQtBuckets(store, 2026);
+    const january = buckets[0];
+
+    expect(buckets).toHaveLength(12);
+    expect(buckets.map((bucket) => bucket.month)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    expect(january).toMatchObject({ year: 2026, month: 1, participantCount: 2, totalCompletions: 3 });
+    expect(january.participants.map((item) => [item.child.id, item.completions])).toEqual(
+      expect.arrayContaining([
+        ["child-harin", 2],
+        ["child-joon", 1],
+      ]),
+    );
+    expect(january.participants.find((item) => item.child.id === "child-yuna")).toBeUndefined();
+    expect(buckets[1]).toMatchObject({ participantCount: 0, totalCompletions: 0, participants: [] });
+    expect(buckets[11]).toMatchObject({ participantCount: 0, totalCompletions: 0, participants: [] });
+  });
+
+  it("builds all twelve birthday buckets from active children only", () => {
+    const store = createDefaultFamilyOpenStore();
+    store.children[2] = { ...store.children[2], isActive: false };
+    store.children.push({
+      id: "child-no-birthday",
+      name: "생일미정",
+      classId: "class-elementary",
+      isActive: true,
+    });
+
+    const buckets = getYearlyBirthdayBuckets(store, 2026);
+
+    expect(buckets).toHaveLength(12);
+    expect(buckets.map((bucket) => bucket.month)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    expect(buckets[5]).toMatchObject({ year: 2026, month: 6, birthdayCount: 1 });
+    expect(buckets[5].children.map((child) => child.id)).toEqual(["child-harin"]);
+    expect(buckets[8].children.map((child) => child.id)).toEqual(["child-joon"]);
+    expect(buckets[0]).toMatchObject({ birthdayCount: 0, children: [] });
+  });
+
   it("normalizes parent relation and formats its label", () => {
     const store = normalizeFamilyOpenStore({
       ...createDefaultFamilyOpenStore(),
@@ -199,6 +307,40 @@ describe("family open stats", () => {
     expect(canViewAttendanceMemo(store.attendanceMemos[0], "teacher-daniel", true)).toBe(true);
     expect(canCreateSecretAttendanceMemo(store, "class-kindergarten", "teacher-minji")).toBe(true);
     expect(canCreateSecretAttendanceMemo(store, "class-kindergarten", "teacher-daniel")).toBe(false);
+  });
+
+  it("returns every attendance memo newest first without mutating the store", () => {
+    const store = createDefaultFamilyOpenStore();
+    store.attendanceMemos = [
+      {
+        id: "memo-middle",
+        sessionDate: "2026-06-28",
+        note: "중간",
+        isSecret: false,
+        savedAt: "2026-06-28T20:00:00.000Z",
+      },
+      {
+        id: "memo-oldest",
+        sessionDate: "2026-06-21",
+        note: "예전",
+        isSecret: false,
+        savedAt: "2026-06-21T20:00:00.000Z",
+      },
+      {
+        id: "memo-newest",
+        sessionDate: "2026-07-05",
+        note: "최신",
+        isSecret: true,
+        savedAt: "2026-07-05T20:00:00.000Z",
+      },
+    ];
+
+    expect(getAllAttendanceMemosLatestFirst(store).map((memo) => memo.id)).toEqual([
+      "memo-newest",
+      "memo-middle",
+      "memo-oldest",
+    ]);
+    expect(store.attendanceMemos.map((memo) => memo.id)).toEqual(["memo-middle", "memo-oldest", "memo-newest"]);
   });
 
   it("sorts children by name by default or by class order", () => {

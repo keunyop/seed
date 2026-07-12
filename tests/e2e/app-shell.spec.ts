@@ -220,9 +220,9 @@ test("Supabase-backed attendance flow supports teacher and class management", as
   await waitForSaved(page);
   await page.locator("header button").click();
   const unassignedChildDialog = page.getByRole("dialog");
-  await unassignedChildDialog.locator("input").nth(1).fill(unassignedChildName);
-  await unassignedChildDialog.locator("select").nth(0).selectOption("female");
-  await unassignedChildDialog.locator("input[type='date']").nth(0).fill(`2018-${String(month).padStart(2, "0")}-10`);
+  await unassignedChildDialog.getByLabel("이름").fill(unassignedChildName);
+  await unassignedChildDialog.getByLabel("성별").selectOption("female");
+  await unassignedChildDialog.getByLabel("생년월일").fill(`2018-${String(month).padStart(2, "0")}-10`);
   await unassignedChildDialog.locator("button[type='submit']").click();
   await expect(page.getByRole("heading", { name: unassignedChildName })).toBeVisible();
   await waitForSaved(page);
@@ -237,15 +237,15 @@ test("Supabase-backed attendance flow supports teacher and class management", as
 
   await page.locator("header button").click();
   const addChildDialog = page.getByRole("dialog");
-  await addChildDialog.locator("input").nth(1).fill(childName);
-  await addChildDialog.locator("select").nth(0).selectOption("female");
-  await addChildDialog.locator("input[type='date']").nth(0).fill(`2018-${String(month).padStart(2, "0")}-15`);
+  await addChildDialog.getByLabel("이름").fill(childName);
+  await addChildDialog.getByLabel("성별").selectOption("female");
+  await addChildDialog.getByLabel("생년월일").fill(`2018-${String(month).padStart(2, "0")}-15`);
   await addChildDialog.getByLabel("관계").selectOption("mother");
-  await addChildDialog.locator("input").nth(4).fill("김나무");
-  await addChildDialog.locator("input").nth(5).fill("010-0000-0000");
-  await addChildDialog.locator("input").nth(6).fill("테스트 주소");
-  await addChildDialog.locator("input").nth(7).fill("parent@example.com");
-  await addChildDialog.locator("textarea").fill("테스트 알러지 없음");
+  await addChildDialog.getByLabel("성함").fill("김나무");
+  await addChildDialog.getByLabel("전화번호").fill("010-0000-0000");
+  await addChildDialog.getByLabel("주소").fill("테스트 주소");
+  await addChildDialog.getByLabel("이메일").fill("parent@example.com");
+  await addChildDialog.getByLabel("특이사항").fill("테스트 알러지 없음");
   await addChildDialog.getByLabel("반").selectOption({ label: editedClassName });
   await addChildDialog.locator("button[type='submit']").click();
   await expect(page.getByRole("heading", { name: childName })).toBeVisible();

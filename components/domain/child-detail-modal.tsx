@@ -1,11 +1,11 @@
 "use client";
 
-import type { ChangeEvent, FormEvent } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Camera, Pencil, Plus, Trash2, X } from "lucide-react";
+import type { FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Plus, Trash2, X } from "lucide-react";
 import { ChildAvatar } from "@/components/domain/child-avatar";
+import { ProfilePhotoPicker } from "@/components/domain/profile-photo-picker";
 import { PressableButton } from "@/components/ui/pressable-button";
-import { preparePhotoDataUrl } from "@/lib/family/photo-data-url";
 import type { ChildGender, FamilyChild, FamilyClass, ParentRelation } from "@/lib/family/types";
 
 export type ChildDetailFormInput = {
@@ -104,13 +104,9 @@ export function ChildDetailModal({
   const [classId, setClassId] = useState(initialClassId);
   const [notes, setNotes] = useState(child?.notes ?? "");
   const [error, setError] = useState("");
-  const [photoStatus, setPhotoStatus] = useState<"idle" | "processing">("idle");
-  const [isPhotoMenuOpen, setIsPhotoMenuOpen] = useState(false);
-  const photoInputRef = useRef<HTMLInputElement>(null);
-  const photoRequestIdRef = useRef(0);
+  const [isPhotoProcessing, setIsPhotoProcessing] = useState(false);
 
   const selectedClassId = classes.some((item) => item.id === classId) ? classId : "";
-  const isPhotoProcessing = photoStatus === "processing";
 
   useEffect(() => {
     const originalOverflow = document.body.style.overflow;
@@ -128,68 +124,6 @@ export function ChildDetailModal({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [onClose]);
-
-  async function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
-    const input = event.target;
-    const file = input.files?.[0];
-    const requestId = photoRequestIdRef.current + 1;
-    photoRequestIdRef.current = requestId;
-    setError("");
-    setPhotoStatus("idle");
-
-    if (!file) {
-      return;
-    }
-
-    setPhotoStatus("processing");
-    const result = await preparePhotoDataUrl(file);
-
-    if (photoRequestIdRef.current !== requestId) {
-      return;
-    }
-
-    if (!result.ok) {
-      setPhotoStatus("idle");
-      setError(result.message);
-      input.value = "";
-      return;
-    }
-
-    setPhotoDataUrl(result.dataUrl);
-    setPhotoStatus("idle");
-    setIsPhotoMenuOpen(false);
-  }
-
-  function openPhotoPicker() {
-    if (photoInputRef.current) {
-      photoInputRef.current.value = "";
-      photoInputRef.current.click();
-    }
-  }
-
-  function handlePhotoButtonClick() {
-    if (photoDataUrl) {
-      setIsPhotoMenuOpen((current) => !current);
-      return;
-    }
-
-    openPhotoPicker();
-  }
-
-  function handleChangePhoto() {
-    setIsPhotoMenuOpen(false);
-    openPhotoPicker();
-  }
-
-  function handleRemovePhoto() {
-    setPhotoDataUrl("");
-    setPhotoStatus("idle");
-    setError("");
-    setIsPhotoMenuOpen(false);
-    if (photoInputRef.current) {
-      photoInputRef.current.value = "";
-    }
-  }
 
   function updateParentField(parentId: string, field: "relation" | "name" | "phone", value: string) {
     setParents((current) =>
@@ -268,59 +202,12 @@ export function ChildDetailModal({
 
         <form className="mt-4 grid grid-cols-2 gap-3" onSubmit={handleSubmit}>
           <div className="col-span-2 block">
-            <span className="text-sm font-extrabold text-charcoal">사진</span>
-            <div className="mt-2 flex items-center gap-3">
-              <div className="relative shrink-0">
-                <button
-                  aria-expanded={photoDataUrl ? isPhotoMenuOpen : undefined}
-                  aria-label={photoDataUrl ? "사진 메뉴 열기" : "사진 선택"}
-                  className="relative rounded-full focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-blue-text"
-                  onClick={handlePhotoButtonClick}
-                  type="button"
-                >
-                  <ChildAvatar gender={gender} name={name} photoDataUrl={photoDataUrl} size="lg" />
-                  <span className="absolute bottom-0 right-0 inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-sky-blue text-white">
-                    {photoDataUrl ? (
-                      <Pencil aria-hidden="true" className="h-3.5 w-3.5" />
-                    ) : (
-                      <Camera aria-hidden="true" className="h-3.5 w-3.5" />
-                    )}
-                  </span>
-                </button>
-                {photoDataUrl && isPhotoMenuOpen ? (
-                  <div className="absolute left-0 top-[calc(100%+8px)] z-10 w-32 overflow-hidden rounded-[12px] border-2 border-cloud-gray bg-white">
-                    <button
-                      className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-sm font-extrabold text-almost-black"
-                      onClick={handleChangePhoto}
-                      type="button"
-                    >
-                      <Pencil aria-hidden="true" className="h-4 w-4 text-sky-blue-text" />
-                      수정
-                    </button>
-                    <button
-                      className="flex min-h-11 w-full items-center gap-2 border-t-2 border-cloud-gray px-3 text-left text-sm font-extrabold text-[#b3261e]"
-                      onClick={handleRemovePhoto}
-                      type="button"
-                    >
-                      <Trash2 aria-hidden="true" className="h-4 w-4" />
-                      삭제
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-              <input
-                accept="image/*"
-                className="hidden"
-                onChange={handlePhotoChange}
-                ref={photoInputRef}
-                type="file"
-              />
-            </div>
-            {isPhotoProcessing ? (
-              <p className="mt-2 rounded-[12px] bg-[#e8f7ff] p-3 text-sm font-bold text-sky-blue-text" role="status">
-                사진 크기를 줄이는 중입니다.
-              </p>
-            ) : null}
+            <ProfilePhotoPicker
+              onPhotoDataUrlChange={setPhotoDataUrl}
+              onProcessingChange={setIsPhotoProcessing}
+              photoDataUrl={photoDataUrl}
+              preview={<ChildAvatar gender={gender} name={name} photoDataUrl={photoDataUrl} size="lg" />}
+            />
           </div>
 
           <label className="block min-w-0">

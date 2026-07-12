@@ -100,3 +100,24 @@ export type MonthlyQtDetail = {
   className: string;
   completions: number;
 };
+
+export type WeeklyAttendanceBucket = {
+  sessionDate: string;
+  presentCount: number;
+  attendees: WeeklyAttendanceDetail[];
+};
+
+export type MonthlyQtBucket = {
+  year: number;
+  month: number;
+  participantCount: number;
+  totalCompletions: number;
+  participants: MonthlyQtDetail[];
+};
+
+export type MonthlyBirthdayBucket = {
+  year: number;
+  month: number;
+  birthdayCount: number;
+  children: FamilyChild[];
+};

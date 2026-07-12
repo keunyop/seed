@@ -6,13 +6,19 @@ import type {
   FamilyChild,
   FamilyClass,
   FamilyOpenStore,
+  MonthlyBirthdayBucket,
+  MonthlyQtBucket,
   MonthlyQtDetail,
   ParentRelation,
   FamilyTeacher,
+  WeeklyAttendanceBucket,
   WeeklyAttendanceDetail,
 } from "@/lib/family/types";
+import { getNearestWeekdayDate } from "@/lib/dates/service-week";
 
 export type ChildrenSortMode = "name" | "class";
+
+export const RECENT_ATTENDANCE_WEEK_COUNT = 8;
 
 const koreanNameCollator = new Intl.Collator("ko-KR", { sensitivity: "base" });
 
@@ -196,10 +202,19 @@ export function getChildRecord(session: AttendanceSession, childId: string): Att
 }
 
 export function getAttendanceMemosForView(store: FamilyOpenStore, sessionDate: string, classId?: string) {
-  return store.attendanceMemos
-    .filter((memo) => memo.sessionDate === sessionDate)
-    .filter((memo) => !classId || memo.classId === classId)
-    .sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+  return sortAttendanceMemosLatestFirst(
+    store.attendanceMemos
+      .filter((memo) => memo.sessionDate === sessionDate)
+      .filter((memo) => !classId || memo.classId === classId),
+  );
+}
+
+function sortAttendanceMemosLatestFirst(memos: AttendanceMemo[]) {
+  return [...memos].sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+}
+
+export function getAllAttendanceMemosLatestFirst(store: FamilyOpenStore) {
+  return sortAttendanceMemosLatestFirst(store.attendanceMemos);
 }
 
 export function canViewAttendanceMemo(memo: AttendanceMemo, currentTeacherId?: string, isAdmin = false) {
@@ -282,6 +297,76 @@ export function getMonthlyQtDetails(store: FamilyOpenStore, sessionDate: string,
     })
     .filter((item): item is MonthlyQtDetail => item !== null)
     .sort(compareChildrenByClassAndName(store));
+}
+
+function assertCalendarYear(year: number) {
+  if (!Number.isInteger(year) || year < 1 || year > 9999) {
+    throw new Error("Year must be an integer from 1 to 9999.");
+  }
+}
+
+function shiftIsoDate(isoDate: string, days: number) {
+  const date = new Date(`${isoDate}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+export function getRecentWeeklyAttendanceBuckets(
+  store: FamilyOpenStore,
+  referenceDate: string,
+  weekCount = RECENT_ATTENDANCE_WEEK_COUNT,
+): WeeklyAttendanceBucket[] {
+  if (!Number.isInteger(weekCount) || weekCount < 1) {
+    throw new Error("Week count must be a positive integer.");
+  }
+
+  const latestSunday = getNearestWeekdayDate(referenceDate, 0);
+
+  return Array.from({ length: weekCount }, (_, index) => {
+    const weeksBeforeLatest = weekCount - index - 1;
+    const sessionDate = shiftIsoDate(latestSunday, weeksBeforeLatest * -7);
+    const attendees = getWeeklyAttendanceDetails(store, sessionDate).filter((item) => item.status === "present");
+
+    return {
+      sessionDate,
+      presentCount: attendees.length,
+      attendees,
+    };
+  });
+}
+
+export function getYearlyQtBuckets(store: FamilyOpenStore, year: number): MonthlyQtBucket[] {
+  assertCalendarYear(year);
+  const yearDate = `${String(year).padStart(4, "0")}-01-01`;
+
+  return Array.from({ length: 12 }, (_, index) => {
+    const month = index + 1;
+    const participants = getMonthlyQtDetails(store, yearDate, month);
+
+    return {
+      year,
+      month,
+      participantCount: participants.length,
+      totalCompletions: participants.reduce((total, item) => total + item.completions, 0),
+      participants,
+    };
+  });
+}
+
+export function getYearlyBirthdayBuckets(store: FamilyOpenStore, year: number): MonthlyBirthdayBucket[] {
+  assertCalendarYear(year);
+
+  return Array.from({ length: 12 }, (_, index) => {
+    const month = index + 1;
+    const children = getMonthlyBirthdays(store, month);
+
+    return {
+      year,
+      month,
+      birthdayCount: children.length,
+      children,
+    };
+  });
 }
 
 export function getDashboardSummary(store: FamilyOpenStore, sessionDate: string, month: number): DashboardSummary {

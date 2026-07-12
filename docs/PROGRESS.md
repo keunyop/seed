@@ -1,5 +1,56 @@
 # Progress
 
+## 2026-07-11 출석 반 강조, iPhone 사진 촬영, 통계 그래프·통합 메모 개편
+
+### 제품 기준
+- 필터 없는 통계의 주간 범위는 현재 예배 주를 포함한 최근 8개 일요일로 정했고, 기록이 없는 주도 0명으로 표시한다.
+- 월별 통계는 현재 연도 1~12월을 표시한다.
+- 큐티 막대 값은 해당 월에 한 번 이상 완료한 활성 아동의 중복 제거 인원이며, 상세에는 아동별 완료 횟수와 월 총 완료 횟수를 함께 표시한다.
+- 통합 메모는 전체 이력을 최신 작성순으로 5개씩 표시하고 기존 비밀 메모 UI 가림 규칙을 유지한다.
+
+### 완료
+- `/attendance`의 반 select를 초록 테두리·연한 초록 배경으로 강조하고, 바로 아래에 `현재 선택 반` 배지를 추가했다.
+- 전체 반 선택에서는 출석 명단만 유지하고 하단의 메모 작성·목록 섹션을 숨겼다.
+- 출석 메모 draft를 날짜·반별 map으로 보관해 여러 반에서 작성 중인 내용이 서로 따라가거나 유실되지 않게 했다.
+- 아이·선생님 사진 입력을 공통 `ProfilePhotoPicker`로 묶고 `사진 찍기`와 `앨범에서 선택`을 분리했다.
+  - `사진 찍기`는 실제 native file input에 `accept="image/*"`, `capture="environment"`를 사용한다.
+  - `display:none` input의 programmatic click을 제거하고, label 안의 투명 input을 사용자가 직접 누르는 구조로 바꿨다.
+  - MIME이 비어 있거나 HEIC/HEIF인 사진은 크기와 관계없이 브라우저 디코딩 후 JPEG 변환을 거친다.
+  - object URL은 canvas 처리가 끝난 뒤 해제하고, 디코딩 실패·160KB 축소 실패는 picker 안에서 안내한다.
+  - 이미지 디코딩 이벤트가 멈추면 15초 후 timeout 오류로 해제해 저장 버튼이 계속 잠기지 않게 했다.
+- `/reports`의 주간 기준일·생일/큐티 월 필터와 숫자 카드 3개를 제거하고 다음 클릭형 막대그래프로 교체했다.
+  - 최근 8주 출석자 수
+  - 현재 연도 1~12월 큐티 완료 아동 수
+  - 1~12월 생일자 수
+- 막대를 누르면 해당 아동의 아바타 grid 모달이 열리고, 아바타/목록 보기 토글과 명단 복사를 사용할 수 있게 했다.
+- 통계 상세 모달에 focus trap, 닫은 뒤 원래 막대로 focus 복원, Escape 닫기, 44px 이상 보기 토글과 iPhone safe-area 하단 여백을 적용했다.
+- 통계에 모든 반 선생님 메모를 최신순으로 모아 표시하고 5개씩 페이지 처리했다. 비밀 메모는 작성자·관리자 외에는 본문 대신 비밀 처리 문구를 표시한다.
+- 아이·반·선생님 전체 저장이 `attendance_memos`를 전량 삭제하지 않고 현재 store 메모만 ID 기준 upsert하도록 바꿔, 다른 교사가 동시에 추가한 메모를 보존했다.
+- 사진 input 추가로 DOM 순서가 바뀌어도 깨지지 않도록 기존 원격 E2E의 아이 입력 선택자를 접근성 label 기준으로 보강했다.
+- `README.md`와 `docs/MVP_DESIGN_SPEC.md`를 새 동작 기준으로 갱신했다.
+
+### 검증
+- `pnpm run typecheck`: 통과
+- `.\node_modules\.bin\eslint.cmd .`: 통과
+- `.\node_modules\.bin\vitest.cmd run`: 8 files, 43 tests 통과
+- `.\node_modules\.bin\vitest.cmd run --config vitest.db.config.ts`: 1 file, 1 test 통과
+- `pnpm run build`: 통과
+- `.\node_modules\.bin\playwright.cmd test tests/e2e/attendance-mock.spec.ts --project=webkit-mobile`: 반 강조·전체 반 메모 숨김을 포함한 REST mock 1 test 통과. 이후 반별 복수 draft 보존 assertion을 추가했으며 현재 파일 재실행은 아래 권한 제한으로 남아 있다.
+- `git diff --check`: 통과
+- 통계 REST mock E2E와 최종 확장한 attendance mock E2E는 테스트를 추가했으나 sandbox에서 Next dev server 시작이 `Access is denied`로 실패했고, 권한 재요청은 현재 사용량 한도로 거절되어 최종 파일 상태로 재실행하지 못했다.
+
+### 데이터/배포 영향
+- DB migration, 외부 패키지, 환경변수 변경은 없다.
+- 운영 반영에는 재배포가 필요하다.
+- 전체 store 저장의 메모 동작은 전량 교체에서 ID upsert로 바뀌며 기존 메모를 삭제하지 않는다.
+
+### 남은 확인과 위험
+- 실제 iPhone Safari/홈 화면 앱의 카메라는 데스크톱 WebKit으로 재현할 수 없다. 배포 후 아이·선생님 각각 `사진 찍기 → 미리보기 → 저장 → 새로고침 유지`를 실제 기기에서 확인해야 한다.
+- 구형 iOS가 HEIC 웹 디코딩을 지원하지 않으면 picker에 JPG/PNG 재선택 안내가 표시된다.
+- `tests/e2e/reports-mock.spec.ts`와 최종 `tests/e2e/attendance-mock.spec.ts`는 권한/사용량 제한이 풀린 뒤 WebKit mobile에서 실행하고, reports는 Chromium desktop도 확인해야 한다.
+- 비밀 메모는 현재도 공개 anon DB 응답을 UI에서 가리는 수준이다. 실제 비밀 보장은 Supabase Auth/RLS 또는 서버 권한 경계를 정하는 별도 작업이 필요하다.
+- 위 두 검증이 남아 있어 루트 `goal.md`를 유지한다.
+
 ## 2026-07-04 선생님/반 UX와 초기 로딩 성능 개선
 
 ### 완료
