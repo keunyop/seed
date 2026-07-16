@@ -1,5 +1,49 @@
 # Progress
 
+## 2026-07-15 아이 사진 즉시 저장과 전 화면 모바일 UX 감사
+
+### 제품 기준
+- 기존 아이의 새 사진은 촬영 또는 앨범 선택 후 이미지 처리가 끝나면 사진 한 필드만 즉시 저장한다. 모달의 이름·보호자·반 등 다른 미저장 입력은 자동 저장하지 않는다.
+- 신규 아이는 DB 식별자가 없으므로 기존 전체 등록 시 사진을 함께 저장하고, 기존 사진 삭제와 선생님 사진도 기존 폼 저장 흐름을 유지한다.
+- 사진 저장 중에는 중복 선택과 폼 제출을 막지만, 네트워크가 오래 걸려도 모달 닫기·취소·Escape는 허용한다.
+
+### 완료
+- `children.photo_data_url`만 `organization_id + child id`로 제한해 PATCH하는 사진 전용 Supabase 저장 helper와 store action을 추가했다.
+- PATCH 응답에서 실제 갱신 행을 확인해 대상 없음/RLS 차단으로 0행이 갱신된 경우 거짓 성공을 표시하지 않게 했다.
+- `/children`, `/attendance`, `/reports`에서 여는 기존 아이 상세 모달에 사진 자동 저장을 연결했다.
+- 이미지 처리 후 미리보기를 즉시 갱신하고 `사진 저장 중`, `사진만 바로 저장됨`, 실패 안내와 `사진 다시 저장` 상태를 모달 안에 표시한다.
+- 실패 시 선택 사진과 다른 폼 입력을 유지하며 DB 원문 오류는 화면에 노출하지 않는다. 성공한 경우에만 전역 store의 해당 아이 사진만 갱신한다.
+- 신규 아이 사진, 기존 사진 삭제, 선생님 사진은 기존 폼 저장 흐름을 유지하도록 분리했다.
+- 아이 상세 모달에 초기 focus, focus trap, Escape, 호출 요소 focus 복원과 모바일 safe-area 하단 여백을 추가했다.
+- 하단 탭, 홈의 반 선택, 출석 빈 상태의 아이 추가 링크를 Next.js `Link`로 바꿔 전체 문서 재로딩과 store 재조회 비용을 줄였다.
+- 모바일 날짜 input을 16px로 보정하고, 큐티 선택 상태의 글자 대비를 어두운 색으로 높였다.
+- 출석 상세 버튼, 저장 실패 재시도, 메모 페이지 버튼을 44px 이상으로 키웠다.
+- 출석·아이·선생님·반 목록이 초기 로딩과 실제 빈 상태를 구분하도록 보강했다.
+- 원격 DB를 초기화하는 `app-shell` E2E는 `E2E_ALLOW_REMOTE_RESET=1` 없이는 skip하고, 운영 데이터에 접근하지 않는 `test:e2e:mock` 명령을 추가했다.
+
+### 검증
+- `tsc --noEmit`: 통과
+- 전체 ESLint: 통과
+- 전체 단위/컴포넌트 테스트: 9 files, 58 tests 통과
+- DB migration 테스트: 1 file, 1 test 통과
+- production build: 통과
+- `tests/e2e/child-photo-mock.spec.ts`: Chromium mobile, Chromium desktop, WebKit mobile 3 tests 통과
+- `tests/e2e/attendance-mock.spec.ts --project=webkit-mobile`: 1 test 통과
+- `tests/e2e/reports-mock.spec.ts`: Chromium mobile, WebKit mobile 2 tests 통과
+- 전체 `playwright test`: REST mock 9 tests 통과, 원격 초기화 `app-shell` 9 tests 안전하게 skip
+- mock E2E에서 사진 단독 PATCH body·조직/아이 필터, 첫 실패 후 draft 유지·재시도, 다른 테이블 mutation 0건, 44px 터치 높이, 390px 가로 overflow 없음 확인
+
+### 데이터/배포 영향
+- DB migration, 환경변수, 외부 패키지 변경은 없다.
+- 운영 반영에는 앱 재배포가 필요하다.
+- 실제 운영 Supabase 데이터는 읽거나 수정하지 않았다.
+
+### 남은 확인과 다음 우선순위
+- 실제 iPhone Safari/홈 화면 앱의 카메라 확인 화면은 데스크톱 WebKit으로 완전히 재현할 수 없다. 배포 후 기존 아이에서 `사진 찍기 → 사용/확인 → 사진만 바로 저장됨 → 새로고침 유지`를 실제 기기로 확인해야 한다.
+- 다른 브라우저의 오래된 전체 store 저장이 새 사진을 덮어쓸 수 있는 last-write-wins 위험과 공개 anon RLS의 권한 한계는 남아 있다.
+- 전 화면 감사의 다음 최우선 작업은 아이·선생님·반 일반 저장을 실제 원격 결과까지 기다리는 async 저장/실패 재시도 흐름으로 바꾸는 것이다. 현재 일반 관리 저장은 fire-and-forget 전체 store 저장이라 원격 실패가 모달 닫힘 뒤 숨겨질 수 있다.
+- 후속 UX 묶음은 선생님/반/로그인 모달 focus trap 통일, 현재 선생님 전환 UI, 로드 실패 재시도, 실제 브랜드 폰트 로딩 순이다.
+
 ## 2026-07-12 사진 큰보기, 최근/전체 통계, 관리자 메모 확인
 
 ### 제품 기준

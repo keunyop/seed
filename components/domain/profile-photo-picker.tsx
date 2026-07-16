@@ -11,8 +11,10 @@ type ProfilePhotoPickerProps = {
   preview: ReactNode;
   previewLabel?: string;
   onPhotoDataUrlChange: (photoDataUrl: string) => void;
+  onPhotoPrepared?: (photoDataUrl: string) => void;
   onProcessingChange?: (isProcessing: boolean) => void;
   onViewerOpenChange?: (isOpen: boolean) => void;
+  isDisabled?: boolean;
 };
 
 const pickerClassName =
@@ -23,8 +25,10 @@ export function ProfilePhotoPicker({
   preview,
   previewLabel = "사진",
   onPhotoDataUrlChange,
+  onPhotoPrepared,
   onProcessingChange,
   onViewerOpenChange,
+  isDisabled = false,
 }: ProfilePhotoPickerProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
@@ -35,6 +39,7 @@ export function ProfilePhotoPicker({
   const viewerRef = useRef<HTMLElement>(null);
   const viewerCloseButtonRef = useRef<HTMLButtonElement>(null);
   const previewButtonRef = useRef<HTMLButtonElement>(null);
+  const isUnavailable = isDisabled || isProcessing;
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -137,6 +142,7 @@ export function ProfilePhotoPicker({
     }
 
     onPhotoDataUrlChange(result.dataUrl);
+    onPhotoPrepared?.(result.dataUrl);
   }
 
   function handleRemovePhoto() {
@@ -157,7 +163,7 @@ export function ProfilePhotoPicker({
               aria-haspopup="dialog"
               aria-label={`${previewLabel} 크게 보기`}
               className="block rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-blue-text disabled:opacity-60"
-              disabled={isProcessing}
+              disabled={isUnavailable}
               onClick={() => setIsViewerOpen(true)}
               ref={previewButtonRef}
               type="button"
@@ -170,25 +176,25 @@ export function ProfilePhotoPicker({
         </div>
         <div className="min-w-0 flex-1">
           <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
-            <label className={`${pickerClassName} ${isProcessing ? "opacity-60" : ""}`}>
+            <label className={`${pickerClassName} ${isUnavailable ? "opacity-60" : ""}`}>
               <Camera aria-hidden="true" className="h-4 w-4 shrink-0" />
               <span className="pointer-events-none">사진 찍기</span>
               <input
                 accept="image/*"
                 capture="environment"
                 className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
-                disabled={isProcessing}
+                disabled={isUnavailable}
                 onChange={handlePhotoChange}
                 type="file"
               />
             </label>
-            <label className={`${pickerClassName} ${isProcessing ? "opacity-60" : ""}`}>
+            <label className={`${pickerClassName} ${isUnavailable ? "opacity-60" : ""}`}>
               <Images aria-hidden="true" className="h-4 w-4 shrink-0" />
               <span className="pointer-events-none">앨범에서 선택</span>
               <input
                 accept="image/*"
                 className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
-                disabled={isProcessing}
+                disabled={isUnavailable}
                 onChange={handlePhotoChange}
                 type="file"
               />

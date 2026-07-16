@@ -36,7 +36,7 @@ function getParentNamesLabel(child: FamilyChild) {
 }
 
 export function ChildrenClient() {
-  const { store, isReady, addChild, updateChild, deleteChild } = useFamilyOpenStore();
+  const { store, isReady, addChild, updateChild, deleteChild, saveChildPhoto } = useFamilyOpenStore();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedChild, setSelectedChild] = useState<FamilyChild | null>(null);
   const [filterClassId, setFilterClassId] = useState("all");
@@ -132,9 +132,13 @@ export function ChildrenClient() {
         <section className="mt-4 rounded-[12px] border-2 border-cloud-gray p-4 sm:p-6">
           <h2 className="flex items-center gap-2 text-xl font-extrabold text-almost-black">
             <Baby aria-hidden="true" className="h-5 w-5 text-sky-blue-text" />
-            등록된 아이 {filteredChildren.length}명
+            등록된 아이 {isReady ? `${filteredChildren.length}명` : ""}
           </h2>
-          {filteredChildren.length === 0 ? (
+          {!isReady ? (
+            <div className="mt-4 rounded-[12px] border-2 border-cloud-gray p-4" role="status">
+              <p className="font-bold text-graphite">아이 명단을 불러오는 중입니다.</p>
+            </div>
+          ) : filteredChildren.length === 0 ? (
             <div className="mt-4 rounded-[12px] bg-duo-green-light p-4">
               <p className="font-bold text-almost-black">조건에 맞는 아이가 없습니다.</p>
             </div>
@@ -184,6 +188,7 @@ export function ChildrenClient() {
           isReady={isReady}
           onClose={() => setSelectedChild(null)}
           onDelete={() => deleteChild(selectedChild.id)}
+          onPhotoAutoSave={(photoDataUrl) => saveChildPhoto(selectedChild.id, photoDataUrl)}
           onSubmit={(input) => updateChild({ ...input, id: selectedChild.id })}
           submitLabel="수정 저장"
           title={`${selectedChild.name} 상세정보`}

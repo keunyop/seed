@@ -46,10 +46,12 @@ describe("ProfilePhotoPicker", () => {
       wasCompressed: true,
     });
     const onPhotoDataUrlChange = vi.fn();
+    const onPhotoPrepared = vi.fn();
     const onProcessingChange = vi.fn();
     render(
       <ProfilePhotoPicker
         onPhotoDataUrlChange={onPhotoDataUrlChange}
+        onPhotoPrepared={onPhotoPrepared}
         onProcessingChange={onProcessingChange}
         preview={<span aria-label="사진 미리보기" role="img" />}
       />,
@@ -63,9 +65,26 @@ describe("ProfilePhotoPicker", () => {
     await waitFor(() => {
       expect(onPhotoDataUrlChange).toHaveBeenCalledWith("data:image/jpeg;base64,cGhvdG8=");
     });
+    expect(onPhotoPrepared).toHaveBeenCalledTimes(1);
+    expect(onPhotoPrepared).toHaveBeenCalledWith("data:image/jpeg;base64,cGhvdG8=");
     expect(mockedPreparePhotoDataUrl).toHaveBeenCalledWith(file);
     expect(onProcessingChange).toHaveBeenNthCalledWith(1, true);
     expect(onProcessingChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("disables camera, album, and the current-photo viewer while an external save is pending", () => {
+    render(
+      <ProfilePhotoPicker
+        isDisabled
+        onPhotoDataUrlChange={vi.fn()}
+        photoDataUrl="data:image/jpeg;base64,cGhvdG8="
+        preview={<span aria-label="현재 사진" role="img" />}
+      />,
+    );
+
+    expect(screen.getByLabelText("사진 찍기")).toBeDisabled();
+    expect(screen.getByLabelText("앨범에서 선택")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "사진 크게 보기" })).toBeDisabled();
   });
 
   it("opens the current photo in a focused viewer and only exposes delete inside it", async () => {

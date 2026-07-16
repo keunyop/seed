@@ -8,11 +8,13 @@ import { LEGACY_LOCAL_STORE_KEY } from "@/lib/family/store-persistence";
 import {
   saveAttendanceMemoToSupabase,
   saveAttendanceRecordToSupabase,
+  saveChildPhotoToSupabase,
   loadFamilyOpenStoreFromSupabase,
   setAttendanceMemoAcknowledgementInSupabase,
   saveAttendanceSessionToSupabase,
   saveFamilyOpenStoreToSupabase,
 } from "@/lib/family/supabase-store";
+import { getDataUrlByteSize, PHOTO_DATA_URL_MAX_BYTES } from "@/lib/family/photo-data-url";
 import type {
   AttendanceMemo,
   AttendanceRecord,
@@ -584,6 +586,34 @@ function useFamilyOpenStoreState() {
     [persist, store],
   );
 
+  const saveChildPhoto = useCallback(
+    async (childId: string, photoDataUrl: string) => {
+      const currentChild = store.children.find((child) => child.id === childId && child.isActive);
+      if (!currentChild) {
+        return { ok: false, message: "아이 정보를 찾을 수 없습니다." };
+      }
+
+      if (!photoDataUrl.startsWith("data:image/") || getDataUrlByteSize(photoDataUrl) > PHOTO_DATA_URL_MAX_BYTES) {
+        return { ok: false, message: "사진 형식이나 크기를 확인한 뒤 다시 선택해 주세요." };
+      }
+
+      const result = await runRemoteSave(() => saveChildPhotoToSupabase(childId, photoDataUrl));
+      if (!result.ok) {
+        return result;
+      }
+
+      setStore((current) => ({
+        ...current,
+        children: current.children.map((child) =>
+          child.id === childId ? { ...child, photoDataUrl } : child,
+        ),
+      }));
+
+      return result;
+    },
+    [runRemoteSave, store.children],
+  );
+
   const setAttendanceRecord = useCallback(
     (sessionDate: string, childId: string, status: AttendanceStatus, qtCompleted: boolean) => {
       updateStore((current) => {
@@ -855,6 +885,7 @@ function useFamilyOpenStoreState() {
       addClass,
       addTeacher,
       updateChild,
+      saveChildPhoto,
       updateClass,
       updateTeacher,
       deleteChild,
@@ -886,6 +917,7 @@ function useFamilyOpenStoreState() {
       setSessionNote,
       store,
       updateChild,
+      saveChildPhoto,
       updateClass,
       updateTeacher,
     ],

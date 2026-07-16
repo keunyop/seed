@@ -1,6 +1,7 @@
 "use client";
 
 import { UsersRound } from "lucide-react";
+import Link from "next/link";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
 import { useFamilyOpenStore } from "@/components/domain/use-family-open-store";
 import { getTeacherName } from "@/lib/family/stats";
@@ -59,14 +60,14 @@ export function DashboardClient() {
               </div>
             ) : null}
             {isReady ? store.classes.map((item) => (
-              <a
+              <Link
                 className="flex min-h-16 items-center justify-between gap-3 rounded-[12px] border-2 border-cloud-gray px-4 text-left transition hover:border-duo-green focus-visible:border-sky-blue"
                 href={`/attendance?classId=${item.id}`}
                 key={item.id}
               >
                 <span className="font-bold text-almost-black">{item.name}</span>
                 <span className="text-sm font-extrabold text-graphite">{getTeacherName(store, item.teacherId)}</span>
-              </a>
+              </Link>
             )) : null}
           </div>
         </section>

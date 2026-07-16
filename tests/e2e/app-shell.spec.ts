@@ -7,6 +7,11 @@ import { LEGACY_LOCAL_STORE_KEY } from "@/lib/family/store-persistence";
 import { saveFamilyOpenStoreWithClient } from "@/lib/family/supabase-store";
 import type { Database } from "@/types/database.generated";
 
+test.skip(
+  process.env.E2E_ALLOW_REMOTE_RESET !== "1",
+  "원격 Supabase 초기화 테스트는 E2E_ALLOW_REMOTE_RESET=1을 명시한 전용 테스트 프로젝트에서만 실행합니다.",
+);
+
 test.beforeEach(async ({ page }) => {
   await resetRemoteStore();
   await page.goto("/dashboard");

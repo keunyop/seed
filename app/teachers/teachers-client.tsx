@@ -343,10 +343,18 @@ export function TeachersClient() {
         <section className="mt-4 rounded-[12px] border-2 border-cloud-gray p-4 sm:p-6">
           <h2 className="flex items-center gap-2 text-xl font-extrabold text-almost-black">
             <UserRoundCog aria-hidden="true" className="h-5 w-5 text-sky-blue-text" />
-            등록된 선생님 {activeTeachers.length}명
+            등록된 선생님 {isReady ? `${activeTeachers.length}명` : ""}
           </h2>
           <div className="mt-4 grid gap-3">
-            {activeTeachers.map((teacher) => {
+            {!isReady ? (
+              <div className="rounded-[12px] border-2 border-cloud-gray p-4" role="status">
+                <p className="font-bold text-graphite">선생님 명단을 불러오는 중입니다.</p>
+              </div>
+            ) : activeTeachers.length === 0 ? (
+              <div className="rounded-[12px] bg-duo-green-light p-4">
+                <p className="font-bold text-almost-black">등록된 선생님이 없습니다.</p>
+              </div>
+            ) : activeTeachers.map((teacher) => {
                 const teacherClass = getTeacherClass(store, teacher);
                 return (
                   <button

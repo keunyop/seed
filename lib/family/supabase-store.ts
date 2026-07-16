@@ -210,6 +210,12 @@ export function createAttendanceMemoInsertRow(memo: AttendanceMemo) {
   };
 }
 
+export function createChildPhotoUpdateRow(photoDataUrl: string) {
+  return {
+    photo_data_url: photoDataUrl,
+  };
+}
+
 async function ensureDefaultOrganization(supabase: FamilySupabaseClient) {
   const { error } = await supabase.from("organizations").upsert({
     id: DEFAULT_ORGANIZATION_ID,
@@ -557,6 +563,26 @@ export async function setAttendanceMemoAcknowledgementWithClient(
   return { ok: true, message: "" };
 }
 
+export async function saveChildPhotoWithClient(
+  supabase: FamilySupabaseClient,
+  childId: string,
+  photoDataUrl: string,
+): Promise<RemoteWriteResult> {
+  const { data, error } = await supabase
+    .from("children")
+    .update(createChildPhotoUpdateRow(photoDataUrl))
+    .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+    .eq("id", childId)
+    .select("id")
+    .maybeSingle();
+
+  if (error || !data) {
+    return { ok: false, message: "사진을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요." };
+  }
+
+  return { ok: true, message: "" };
+}
+
 export function isFamilyOpenSupabaseConfigured() {
   return createFamilyOpenSupabaseClient() !== null;
 }
@@ -825,6 +851,16 @@ export async function setAttendanceMemoAcknowledgementInSupabase(
     acknowledgedAt,
     acknowledgedByTeacherId,
   );
+}
+
+export async function saveChildPhotoToSupabase(childId: string, photoDataUrl: string) {
+  const supabase = createFamilyOpenSupabaseClient();
+
+  if (!supabase) {
+    return { ok: false, message: "Supabase 환경변수가 설정되지 않았습니다." };
+  }
+
+  return saveChildPhotoWithClient(supabase, childId, photoDataUrl);
 }
 
 export async function saveFamilyOpenStoreToSupabase(store: FamilyOpenStore) {

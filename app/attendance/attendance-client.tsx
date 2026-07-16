@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Info, LockKeyhole } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ChildAvatar } from "@/components/domain/child-avatar";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
@@ -62,7 +63,7 @@ function getToggleButtonClass(isPressed: boolean, tone: "present" | "qt") {
   const activeClass =
     tone === "present"
       ? "border-duo-green bg-duo-green text-almost-black shadow-[0_3px_0_#3f8f01]"
-      : "border-sky-blue bg-sky-blue text-white shadow-[0_3px_0_#0b79b7]";
+      : "border-sky-blue bg-sky-blue text-almost-black shadow-[0_3px_0_#0b79b7]";
   const inactiveHoverClass =
     tone === "present"
       ? "hover:border-duo-green/60 hover:bg-duo-green-light/50"
@@ -107,7 +108,7 @@ function formatMemoSavedAt(value: string) {
 }
 
 export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
-  const { store, isReady, saveAttendanceRecord, saveAttendanceMemo, updateChild, deleteChild } = useFamilyOpenStore();
+  const { store, isReady, saveAttendanceRecord, saveAttendanceMemo, updateChild, deleteChild, saveChildPhoto } = useFamilyOpenStore();
   const { currentTeacherId, isAdmin, isAuthenticated } = useTeacherAuth();
   const [sessionDate, setSessionDate] = useState(() => getNearestWeekdayDate(getLocalIsoDate(), 0));
   const [classId, setClassId] = useState(initialClassId ?? ALL_CLASSES_VALUE);
@@ -308,18 +309,24 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-xl font-extrabold text-almost-black">
-                출석 {presentCount} / 전체 {children.length}
+                {isReady ? `출석 ${presentCount} / 전체 ${children.length}` : "출석 현황"}
               </h2>
-              <p className="mt-1 text-sm font-bold text-graphite">미출석 {notPresentCount}명</p>
+              <p className="mt-1 text-sm font-bold text-graphite">
+                {isReady ? `미출석 ${notPresentCount}명` : "출석 데이터를 불러오는 중입니다."}
+              </p>
             </div>
           </div>
 
-          {children.length === 0 ? (
+          {!isReady ? (
+            <div className="mt-4 rounded-[12px] border-2 border-cloud-gray p-4" role="status">
+              <p className="font-bold text-graphite">아이 명단을 불러오는 중입니다.</p>
+            </div>
+          ) : children.length === 0 ? (
             <div className="mt-4 rounded-[12px] bg-duo-green-light p-4">
               <p className="font-bold text-almost-black">이 반에는 아직 아이가 없습니다.</p>
-              <a className="mt-2 inline-flex font-extrabold text-sky-blue-text underline" href="/children">
+              <Link className="mt-2 inline-flex font-extrabold text-sky-blue-text underline" href="/children">
                 아이 추가하기
-              </a>
+              </Link>
             </div>
           ) : (
             <div className="mt-4 grid gap-3">
@@ -338,7 +345,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
                             <h3 className="truncate text-lg font-extrabold text-almost-black">{child.name}</h3>
                             <button
                               aria-label={`${child.name} 상세정보`}
-                              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sky-blue-text transition-colors hover:bg-sky-blue/10"
+                              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sky-blue-text transition-colors hover:bg-sky-blue/10"
                               onClick={() => setSelectedChild(child)}
                               type="button"
                             >
@@ -392,7 +399,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
                       </p>
                       {recordSaveState === "error" ? (
                         <button
-                          className="min-h-8 rounded-[10px] border-2 border-cloud-gray px-3 text-xs font-extrabold text-sky-blue-text"
+                          className="min-h-11 rounded-[10px] border-2 border-cloud-gray px-3 text-xs font-extrabold text-sky-blue-text"
                           disabled={!isReady || isSavingRecord}
                           onClick={() => retryRecordSave(child.id)}
                           type="button"
@@ -514,7 +521,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
             {memoPageCount > 1 ? (
               <div className="mt-3 grid grid-cols-3 items-center gap-2">
                 <button
-                  className="min-h-10 rounded-[12px] border-2 border-cloud-gray px-3 text-sm font-extrabold text-graphite disabled:opacity-50"
+                  className="min-h-11 rounded-[12px] border-2 border-cloud-gray px-3 text-sm font-extrabold text-graphite disabled:opacity-50"
                   disabled={safeMemoPage <= 1}
                   onClick={() => setMemoPage((current) => Math.max(1, current - 1))}
                   type="button"
@@ -525,7 +532,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
                   {safeMemoPage} / {memoPageCount}
                 </p>
                 <button
-                  className="min-h-10 rounded-[12px] border-2 border-cloud-gray px-3 text-sm font-extrabold text-graphite disabled:opacity-50"
+                  className="min-h-11 rounded-[12px] border-2 border-cloud-gray px-3 text-sm font-extrabold text-graphite disabled:opacity-50"
                   disabled={safeMemoPage >= memoPageCount}
                   onClick={() => setMemoPage((current) => Math.min(memoPageCount, current + 1))}
                   type="button"
@@ -545,6 +552,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
           isReady={isReady}
           onClose={() => setSelectedChild(null)}
           onDelete={() => deleteChild(selectedChild.id)}
+          onPhotoAutoSave={(photoDataUrl) => saveChildPhoto(selectedChild.id, photoDataUrl)}
           onSubmit={(input) => updateChild({ ...input, id: selectedChild.id })}
           submitLabel="수정 저장"
           title={`${selectedChild.name} 상세정보`}

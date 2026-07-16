@@ -80,6 +80,7 @@ export function ReportsClient() {
     isReady,
     saveState,
     updateChild,
+    saveChildPhoto,
     setAttendanceMemoAcknowledged,
   } = useFamilyOpenStore();
   const { currentTeacherId, isAdmin } = useTeacherAuth();
@@ -501,6 +502,7 @@ export function ReportsClient() {
           classes={store.classes}
           isReady={isReady}
           onClose={() => setSelectedChildId(null)}
+          onPhotoAutoSave={(photoDataUrl) => saveChildPhoto(selectedChild.id, photoDataUrl)}
           onSubmit={(input) => updateChild({ id: selectedChild.id, ...input })}
           submitLabel="수정 저장"
           title={`${selectedChild.name} 상세 정보`}

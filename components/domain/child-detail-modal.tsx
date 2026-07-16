@@ -1,8 +1,8 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CheckCircle2, Loader2, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { ChildAvatar } from "@/components/domain/child-avatar";
 import { ProfilePhotoPicker } from "@/components/domain/profile-photo-picker";
 import { PressableButton } from "@/components/ui/pressable-button";
@@ -36,8 +36,11 @@ type ChildDetailModalProps = {
   submitLabel: string;
   onClose: () => void;
   onDelete?: () => { ok: boolean; message: string };
+  onPhotoAutoSave?: (photoDataUrl: string) => Promise<{ ok: boolean; message: string }>;
   onSubmit: (input: ChildDetailFormInput) => { ok: boolean; message: string };
 };
+
+type PhotoSaveState = "idle" | "saving" | "saved" | "error";
 
 function getLocalIsoDate() {
   const date = new Date();
@@ -81,6 +84,7 @@ export function ChildDetailModal({
   submitLabel,
   onClose,
   onDelete,
+  onPhotoAutoSave,
   onSubmit,
 }: ChildDetailModalProps) {
   const initialClassId = useMemo(() => child?.classId ?? "", [child?.classId]);
@@ -106,16 +110,62 @@ export function ChildDetailModal({
   const [error, setError] = useState("");
   const [isPhotoProcessing, setIsPhotoProcessing] = useState(false);
   const [isPhotoViewerOpen, setIsPhotoViewerOpen] = useState(false);
+  const [photoSaveState, setPhotoSaveState] = useState<PhotoSaveState>("idle");
+  const modalRef = useRef<HTMLElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const photoSaveRequestIdRef = useRef(0);
+  const isPhotoViewerOpenRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+  const isPhotoSaving = photoSaveState === "saving";
+  const isPhotoBusy = isPhotoProcessing || isPhotoSaving;
 
   const selectedClassId = classes.some((item) => item.id === classId) ? classId : "";
 
   useEffect(() => {
+    isPhotoViewerOpenRef.current = isPhotoViewerOpen;
+    onCloseRef.current = onClose;
+  }, [isPhotoViewerOpen, onClose]);
+
+  useEffect(() => {
     const originalOverflow = document.body.style.overflow;
+    const returnFocusElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     document.body.style.overflow = "hidden";
+    window.requestAnimationFrame(() => closeButtonRef.current?.focus());
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !isPhotoViewerOpen) {
-        onClose();
+      if (isPhotoViewerOpenRef.current) {
+        return;
+      }
+
+      if (event.key === "Escape") {
+        onCloseRef.current();
+        return;
+      }
+
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const focusable = Array.from(
+        modalRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      );
+      const first = focusable.at(0);
+      const last = focusable.at(-1);
+      if (!first || !last) {
+        return;
+      }
+
+      if (event.shiftKey && (document.activeElement === first || !modalRef.current?.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (
+        !event.shiftKey &&
+        (document.activeElement === last || !modalRef.current?.contains(document.activeElement))
+      ) {
+        event.preventDefault();
+        first.focus();
       }
     }
 
@@ -123,8 +173,41 @@ export function ChildDetailModal({
     return () => {
       document.body.style.overflow = originalOverflow;
       window.removeEventListener("keydown", handleKeyDown);
+      photoSaveRequestIdRef.current += 1;
+      window.requestAnimationFrame(() => returnFocusElement?.focus());
     };
-  }, [isPhotoViewerOpen, onClose]);
+  }, []);
+
+  async function persistPreparedPhoto(nextPhotoDataUrl: string) {
+    if (!child || !onPhotoAutoSave) {
+      return;
+    }
+
+    const requestId = photoSaveRequestIdRef.current + 1;
+    photoSaveRequestIdRef.current = requestId;
+    setPhotoSaveState("saving");
+
+    let result: { ok: boolean; message: string };
+    try {
+      result = await onPhotoAutoSave(nextPhotoDataUrl);
+    } catch {
+      result = { ok: false, message: "네트워크 연결을 확인한 뒤 다시 시도해 주세요." };
+    }
+
+    if (photoSaveRequestIdRef.current !== requestId) {
+      return;
+    }
+
+    setPhotoSaveState(result.ok ? "saved" : "error");
+  }
+
+  function handlePhotoDataUrlChange(nextPhotoDataUrl: string) {
+    setPhotoDataUrl(nextPhotoDataUrl);
+    if (!nextPhotoDataUrl) {
+      photoSaveRequestIdRef.current += 1;
+      setPhotoSaveState("idle");
+    }
+  }
 
   function updateParentField(parentId: string, field: "relation" | "name" | "phone", value: string) {
     setParents((current) =>
@@ -185,8 +268,9 @@ export function ChildDetailModal({
         aria-hidden={isPhotoViewerOpen || undefined}
         aria-labelledby="child-detail-title"
         aria-modal="true"
-        className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[12px] bg-white p-4 sm:mx-auto sm:max-w-[720px] sm:rounded-[12px] sm:p-6"
+        className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[12px] bg-white p-4 pb-[calc(16px+var(--safe-bottom))] sm:mx-auto sm:max-w-[720px] sm:rounded-[12px] sm:p-6"
         inert={isPhotoViewerOpen}
+        ref={modalRef}
         role="dialog"
       >
         <div className="flex items-center justify-between gap-3">
@@ -197,6 +281,7 @@ export function ChildDetailModal({
             aria-label={`${title} 닫기`}
             className="inline-flex h-11 w-11 items-center justify-center rounded-[12px] border-2 border-cloud-gray text-graphite"
             onClick={onClose}
+            ref={closeButtonRef}
             type="button"
           >
             <X aria-hidden="true" className="h-5 w-5" />
@@ -204,15 +289,55 @@ export function ChildDetailModal({
         </div>
 
         <form className="mt-4 grid grid-cols-2 gap-3" onSubmit={handleSubmit}>
-          <div className="col-span-2 block">
+          <div aria-busy={isPhotoBusy} className="col-span-2 block">
             <ProfilePhotoPicker
-              onPhotoDataUrlChange={setPhotoDataUrl}
+              isDisabled={isPhotoSaving}
+              onPhotoDataUrlChange={handlePhotoDataUrlChange}
+              onPhotoPrepared={(nextPhotoDataUrl) => void persistPreparedPhoto(nextPhotoDataUrl)}
               onProcessingChange={setIsPhotoProcessing}
               onViewerOpenChange={setIsPhotoViewerOpen}
               photoDataUrl={photoDataUrl}
               preview={<ChildAvatar gender={gender} name={name} photoDataUrl={photoDataUrl} size="lg" />}
               previewLabel={`${name.trim() || "아이"} 사진`}
             />
+            {child && onPhotoAutoSave && photoSaveState !== "idle" ? (
+              <div
+                className={`mt-2 rounded-[12px] p-3 text-sm font-bold ${
+                  photoSaveState === "error"
+                    ? "bg-[#ffe8e6] text-[#b3261e]"
+                    : photoSaveState === "saved"
+                      ? "bg-duo-green-light text-duo-green-dark"
+                      : "bg-[#e8f7ff] text-sky-blue-text"
+                }`}
+                role={photoSaveState === "error" ? "alert" : "status"}
+              >
+                <div className="flex items-start gap-2">
+                  {photoSaveState === "saving" ? (
+                    <Loader2 aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
+                  ) : photoSaveState === "saved" ? (
+                    <CheckCircle2 aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+                  ) : null}
+                  <p>
+                    {photoSaveState === "saving"
+                      ? "사진을 저장하는 중입니다."
+                      : photoSaveState === "saved"
+                        ? "사진만 바로 저장되었습니다. 다른 변경사항은 수정 저장을 눌러 주세요."
+                        : "사진을 저장하지 못했습니다. 선택한 사진은 화면에 남아 있습니다. 네트워크 연결을 확인한 뒤 다시 저장해 주세요."
+                    }
+                  </p>
+                </div>
+                {photoSaveState === "error" ? (
+                  <button
+                    className="mt-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-[12px] border-2 border-[#ffc3bd] bg-white px-3 text-sm font-extrabold text-[#b3261e]"
+                    onClick={() => void persistPreparedPhoto(photoDataUrl)}
+                    type="button"
+                  >
+                    <RefreshCw aria-hidden="true" className="h-4 w-4" />
+                    사진 다시 저장
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           <label className="block min-w-0">
@@ -374,7 +499,7 @@ export function ChildDetailModal({
             >
               취소
             </button>
-            <PressableButton disabled={!isReady || isPhotoProcessing} type="submit">
+            <PressableButton disabled={!isReady || isPhotoBusy} type="submit">
               {submitLabel}
             </PressableButton>
           </div>
@@ -382,7 +507,7 @@ export function ChildDetailModal({
           {child && onDelete ? (
             <button
               className="col-span-2 inline-flex min-h-12 items-center justify-center gap-2 rounded-[12px] border-2 border-[#ffc3bd] bg-[#fff4f2] px-4 text-base font-extrabold text-[#b3261e]"
-              disabled={!isReady}
+              disabled={!isReady || isPhotoSaving}
               onClick={handleDelete}
               type="button"
             >

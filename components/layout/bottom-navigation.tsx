@@ -1,4 +1,5 @@
 import { BarChart3, CalendarCheck2, Home, Settings, UserRoundCog, UsersRound } from "lucide-react";
+import Link from "next/link";
 
 const items = [
   { id: "home", label: "홈", href: "/dashboard", icon: Home },
@@ -21,7 +22,7 @@ export function BottomNavigation({ active }: BottomNavigationProps) {
     >
       <div className="mx-auto grid max-w-[640px] grid-cols-6 gap-1">
         {items.map((item) => (
-          <a
+          <Link
             aria-current={item.id === active ? "page" : undefined}
             className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-[12px] px-1 text-xs font-extrabold text-graphite transition hover:bg-duo-green-light aria-[current=page]:bg-duo-green-light aria-[current=page]:text-duo-green-dark"
             href={item.href}
@@ -29,7 +30,7 @@ export function BottomNavigation({ active }: BottomNavigationProps) {
           >
             <item.icon aria-hidden="true" className="h-5 w-5" />
             <span>{item.label}</span>
-          </a>
+          </Link>
         ))}
       </div>
     </nav>

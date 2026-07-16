@@ -5,7 +5,9 @@ import {
   createAttendanceRecordInsertRows,
   createAttendanceSessionUpsertRow,
   createAttendanceSessionTouchRow,
+  createChildPhotoUpdateRow,
   DEFAULT_ORGANIZATION_ID,
+  saveChildPhotoWithClient,
   setAttendanceMemoAcknowledgementWithClient,
   saveFamilyOpenStoreWithClient,
 } from "@/lib/family/supabase-store";
@@ -19,7 +21,7 @@ type RecordedMutation = {
   value?: unknown;
 };
 
-function createSupabaseClientMock() {
+function createSupabaseClientMock(options?: { updateData?: { id: string } | null; updateError?: { message: string } | null }) {
   const mutations: RecordedMutation[] = [];
   const client = {
     from(table: string) {
@@ -42,17 +44,27 @@ function createSupabaseClientMock() {
         update(value: unknown) {
           const mutation: RecordedMutation = { operation: "update", table, value, filters: [] };
           mutations.push(mutation);
-          return {
+          const chain = {
             eq(column: string, filterValue: unknown) {
               mutation.filters?.push([column, filterValue]);
+              return chain;
+            },
+            select() {
               return {
-                eq: async (nextColumn: string, nextFilterValue: unknown) => {
-                  mutation.filters?.push([nextColumn, nextFilterValue]);
-                  return { data: null, error: null };
-                },
+                maybeSingle: async () => ({
+                  data: options && "updateData" in options ? options.updateData : { id: "updated-row" },
+                  error: options?.updateError ?? null,
+                }),
               };
             },
+            get data() {
+              return null;
+            },
+            get error() {
+              return options?.updateError ?? null;
+            },
           };
+          return chain;
         },
         upsert: async (value: unknown, options?: unknown) => {
           mutations.push({ operation: "upsert", options, table, value });
@@ -149,6 +161,47 @@ describe("Supabase attendance write helpers", () => {
       note: "반 메모",
       is_secret: true,
       saved_at: "2026-06-28T20:00:00.000Z",
+    });
+  });
+
+  it("patches only one organization-scoped child photo field", async () => {
+    const { client, mutations } = createSupabaseClientMock();
+    const photoDataUrl = "data:image/jpeg;base64,cGhvdG8=";
+
+    expect(createChildPhotoUpdateRow(photoDataUrl)).toEqual({ photo_data_url: photoDataUrl });
+    await expect(saveChildPhotoWithClient(client, "child-1", photoDataUrl)).resolves.toEqual({
+      ok: true,
+      message: "",
+    });
+
+    expect(mutations.filter((mutation) => mutation.table === "children")).toEqual([
+      {
+        operation: "update",
+        table: "children",
+        value: { photo_data_url: photoDataUrl },
+        filters: [
+          ["organization_id", DEFAULT_ORGANIZATION_ID],
+          ["id", "child-1"],
+        ],
+      },
+    ]);
+  });
+
+  it("reports a safe failure when a child photo row is missing or the update fails", async () => {
+    const missingRow = createSupabaseClientMock({ updateData: null });
+    const failedUpdate = createSupabaseClientMock({ updateError: { message: "raw database details" } });
+
+    await expect(
+      saveChildPhotoWithClient(missingRow.client, "missing-child", "data:image/jpeg;base64,cGhvdG8="),
+    ).resolves.toEqual({
+      ok: false,
+      message: "사진을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    });
+    await expect(
+      saveChildPhotoWithClient(failedUpdate.client, "child-1", "data:image/jpeg;base64,cGhvdG8="),
+    ).resolves.toEqual({
+      ok: false,
+      message: "사진을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
     });
   });
 

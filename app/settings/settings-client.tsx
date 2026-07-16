@@ -225,7 +225,15 @@ export function SettingsClient() {
             등록된 반
           </h2>
           <div className="mt-4 grid gap-3">
-            {store.classes.map((item) => (
+            {!isReady ? (
+              <div className="rounded-[12px] border-2 border-cloud-gray p-4" role="status">
+                <p className="font-bold text-graphite">반 정보를 불러오는 중입니다.</p>
+              </div>
+            ) : store.classes.length === 0 ? (
+              <div className="rounded-[12px] bg-duo-green-light p-4">
+                <p className="font-bold text-almost-black">등록된 반이 없습니다.</p>
+              </div>
+            ) : store.classes.map((item) => (
               <button
                 aria-label={`${item.name} 상세정보 열기`}
                 className="rounded-[12px] border-2 border-cloud-gray p-4 text-left transition-colors hover:border-sky-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-blue-text disabled:opacity-60"
