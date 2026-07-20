@@ -14,6 +14,7 @@ describe("Supabase family open database", () => {
     expect(migrations).toContain("20260627000100_nullable_child_birth.sql");
     expect(migrations).toContain("20260702000100_teacher_auth_and_attendance_memos.sql");
     expect(migrations).toContain("20260712000100_attendance_memo_acknowledgements.sql");
+    expect(migrations).toContain("20260719000100_attendance_record_notes.sql");
 
     const legacyMigration = readFileSync(
       join(process.cwd(), "supabase", "migrations", "20260626000100_family_open_app_state.sql"),
@@ -63,5 +64,12 @@ describe("Supabase family open database", () => {
     expect(memoAcknowledgementsMigration).toContain("add column if not exists acknowledged_by_teacher_id text");
     expect(memoAcknowledgementsMigration).toContain("references public.teachers(id) on delete set null");
     expect(memoAcknowledgementsMigration).toContain("where acknowledged_at is null");
+
+    const attendanceRecordNotesMigration = readFileSync(
+      join(process.cwd(), "supabase", "migrations", "20260719000100_attendance_record_notes.sql"),
+      "utf8",
+    );
+    expect(attendanceRecordNotesMigration).toContain("add column if not exists note text not null default ''");
+    expect(attendanceRecordNotesMigration).toContain("check (char_length(note) <= 100)");
   });
 });

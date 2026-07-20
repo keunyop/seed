@@ -180,34 +180,31 @@ export function ReportDetailModal({
             {emptyMessage}
           </p>
         ) : viewMode === "grid" ? (
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="mt-4 grid grid-cols-4 place-items-center gap-4 sm:grid-cols-6">
             {items.map((item) => {
-              const avatar = (
-                <ChildAvatar
-                  gender={item.child.gender}
-                  name={item.child.name}
-                  photoDataUrl={item.child.photoDataUrl}
-                  size="lg"
-                />
-              );
-
               return onItemSelect ? (
                 <button
                   aria-label={`${item.child.name} 상세정보 보기`}
-                  className="flex min-h-24 min-w-0 items-center justify-center rounded-[12px] border-2 border-cloud-gray p-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-blue-text"
+                  className="inline-flex h-16 w-16 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-blue-text"
                   key={item.id}
                   onClick={() => onItemSelect(item)}
                   type="button"
                 >
-                  {avatar}
+                  <ChildAvatar
+                    gender={item.child.gender}
+                    name={item.child.name}
+                    photoDataUrl={item.child.photoDataUrl}
+                    size="lg"
+                  />
                 </button>
               ) : (
-                <article
-                  className="flex min-h-24 min-w-0 items-center justify-center rounded-[12px] border-2 border-cloud-gray p-3"
+                <ChildAvatar
+                  gender={item.child.gender}
                   key={item.id}
-                >
-                  {avatar}
-                </article>
+                  name={item.child.name}
+                  photoDataUrl={item.child.photoDataUrl}
+                  size="lg"
+                />
               );
             })}
           </div>

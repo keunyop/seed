@@ -7,6 +7,7 @@ import { isValidBirthMonthDay, parseBirthDateParts } from "@/lib/family/stats";
 import { LEGACY_LOCAL_STORE_KEY } from "@/lib/family/store-persistence";
 import {
   saveAttendanceMemoToSupabase,
+  saveAttendanceRecordNoteToSupabase,
   saveAttendanceRecordToSupabase,
   saveChildPhotoToSupabase,
   loadFamilyOpenStoreFromSupabase,
@@ -159,7 +160,7 @@ function cloneAttendanceRecords(records: AttendanceSession["records"]) {
   return Object.fromEntries(
     Object.entries(records).map(([childId, record]) => [
       childId,
-      { status: record.status, qtCompleted: record.qtCompleted } satisfies AttendanceRecord,
+      { status: record.status, qtCompleted: record.qtCompleted, note: record.note } satisfies AttendanceRecord,
     ]),
   );
 }
@@ -633,7 +634,7 @@ function useFamilyOpenStoreState() {
               savedAt: new Date().toISOString(),
               records: {
                 ...session.records,
-                [childId]: { status, qtCompleted },
+                [childId]: { status, qtCompleted, note: session.records[childId]?.note },
               },
             },
           },
@@ -658,6 +659,7 @@ function useFamilyOpenStoreState() {
           records[childId] = {
             status,
             qtCompleted: records[childId]?.qtCompleted ?? false,
+            note: records[childId]?.note,
           };
         });
 
@@ -746,6 +748,57 @@ function useFamilyOpenStoreState() {
       return result;
     },
     [runRemoteSave],
+  );
+
+  const saveAttendanceRecordNote = useCallback(
+    async (sessionDate: string, childId: string, value: string) => {
+      if (!store.children.some((child) => child.id === childId && child.isActive)) {
+        return { ok: false, message: "아이 정보를 찾을 수 없습니다." };
+      }
+
+      const note = value.trim();
+      if (note.length > 100) {
+        return { ok: false, message: "아이 메모는 100자 이내로 입력해 주세요." };
+      }
+
+      const savedAt = new Date().toISOString();
+      const result = await runRemoteSave(() =>
+        saveAttendanceRecordNoteToSupabase(sessionDate, childId, note, savedAt),
+      );
+
+      if (!result.ok) {
+        return result;
+      }
+
+      setStore((current) => {
+        const session = current.attendanceByDate[sessionDate] ?? {
+          sessionDate,
+          records: {},
+          note: "",
+          shareWithPastor: false,
+          savedAt: "",
+        };
+        const currentRecord = session.records[childId] ?? { qtCompleted: false };
+
+        return {
+          ...current,
+          attendanceByDate: {
+            ...current.attendanceByDate,
+            [sessionDate]: {
+              ...session,
+              savedAt,
+              records: {
+                ...session.records,
+                [childId]: { ...currentRecord, note: note || undefined },
+              },
+            },
+          },
+        };
+      });
+
+      return result;
+    },
+    [runRemoteSave, store.children],
   );
 
   const saveAttendanceMemo = useCallback(
@@ -895,6 +948,7 @@ function useFamilyOpenStoreState() {
       setAllAttendance,
       setSessionNote,
       saveAttendanceRecord,
+      saveAttendanceRecordNote,
       saveAttendanceMemo,
       setAttendanceMemoAcknowledged,
       saveAttendanceSession,
@@ -909,6 +963,7 @@ function useFamilyOpenStoreState() {
       isReady,
       saveAttendanceMemo,
       saveAttendanceRecord,
+      saveAttendanceRecordNote,
       setAttendanceMemoAcknowledged,
       saveAttendanceSession,
       saveState,

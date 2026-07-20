@@ -4,6 +4,7 @@ import { Check, Info, LockKeyhole } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ChildAvatar } from "@/components/domain/child-avatar";
+import { MonthlyAttendanceOverview } from "@/components/domain/monthly-attendance-overview";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
 import { ChildDetailModal } from "@/components/domain/child-detail-modal";
 import { useTeacherAuth } from "@/components/domain/teacher-auth-provider";
@@ -41,6 +42,7 @@ type AttendanceDraftState = Record<string, AttendanceDraft>;
 
 type RecordSaveState = "idle" | "saving" | "saved" | "error";
 type MemoSaveFeedback = "idle" | "saved" | "error";
+type AttendanceViewMode = "daily" | "monthly";
 
 const ALL_CLASSES_VALUE = "all";
 
@@ -108,12 +110,24 @@ function formatMemoSavedAt(value: string) {
 }
 
 export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
-  const { store, isReady, saveAttendanceRecord, saveAttendanceMemo, updateChild, deleteChild, saveChildPhoto } = useFamilyOpenStore();
+  const {
+    store,
+    isReady,
+    saveAttendanceRecord,
+    saveAttendanceRecordNote,
+    saveAttendanceMemo,
+    updateChild,
+    deleteChild,
+    saveChildPhoto,
+  } = useFamilyOpenStore();
   const { currentTeacherId, isAdmin, isAuthenticated } = useTeacherAuth();
   const [sessionDate, setSessionDate] = useState(() => getNearestWeekdayDate(getLocalIsoDate(), 0));
+  const [viewMode, setViewMode] = useState<AttendanceViewMode>("daily");
+  const [monthValue, setMonthValue] = useState(() => getLocalIsoDate().slice(0, 7));
   const [classId, setClassId] = useState(initialClassId ?? ALL_CLASSES_VALUE);
   const [selectedChild, setSelectedChild] = useState<FamilyChild | null>(null);
   const [recordSaveStateByChildId, setRecordSaveStateByChildId] = useState<Record<string, RecordSaveState>>({});
+  const [noteSaveStateByChildId, setNoteSaveStateByChildId] = useState<Record<string, RecordSaveState>>({});
   const [isSavingMemo, setIsSavingMemo] = useState(false);
   const [memoFeedback, setMemoFeedback] = useState<MemoSaveFeedback>("idle");
   const [memoError, setMemoError] = useState("");
@@ -147,7 +161,8 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
   const safeMemoPage = Math.min(memoPage, memoPageCount);
   const pagedMemos = visibleMemos.slice((safeMemoPage - 1) * 5, safeMemoPage * 5);
   const isSavingAnyRecord = Object.values(recordSaveStateByChildId).some((state) => state === "saving");
-  const isContextLocked = !isReady || !isAuthenticated || isSavingAnyRecord || isSavingMemo;
+  const isSavingAnyChildNote = Object.values(noteSaveStateByChildId).some((state) => state === "saving");
+  const isContextLocked = !isReady || !isAuthenticated || isSavingAnyRecord || isSavingAnyChildNote || isSavingMemo;
 
   function setActiveDraft(recipe: (current: AttendanceDraft) => AttendanceDraft) {
     setDraftState((current) => updateAttendanceDraftForContext(current, sessionKey, freshDraft, recipe));
@@ -200,6 +215,56 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
 
   function retryRecordSave(childId: string) {
     void saveCurrentRecord(childId, activeDraft.records[childId] ?? { qtCompleted: false });
+  }
+
+  async function saveCurrentChildNote(childId: string) {
+    const currentRecord = activeDraft.records[childId] ?? getChildRecord(session, childId);
+    const note = currentRecord.note?.trim() ?? "";
+    setNoteSaveStateByChildId((current) => ({ ...current, [childId]: "saving" }));
+    const result = await saveAttendanceRecordNote(sessionDate, childId, note);
+    setNoteSaveStateByChildId((current) => ({
+      ...current,
+      [childId]: result.ok ? "saved" : "error",
+    }));
+
+    if (result.ok) {
+      setActiveDraft((current) => ({
+        ...current,
+        records: {
+          ...current.records,
+          [childId]: { ...(current.records[childId] ?? { qtCompleted: false }), note: note || undefined },
+        },
+      }));
+    }
+  }
+
+  function changeViewMode(nextMode: AttendanceViewMode) {
+    if (nextMode === "monthly") {
+      setMonthValue(sessionDate.slice(0, 7));
+      if (selectedClassValue === ALL_CLASSES_VALUE && currentTeacherId) {
+        const homeroomClass = store.classes.find((item) => item.teacherId === currentTeacherId);
+        if (homeroomClass) {
+          setClassId(homeroomClass.id);
+        }
+      }
+    }
+    setViewMode(nextMode);
+  }
+
+  function openDailyDate(nextSessionDate: string) {
+    const nextSessionKey = `${nextSessionDate}:${selectedClassValue}:${isReady ? "ready" : "loading"}`;
+    setDraftState((current) => {
+      const next = { ...current };
+      delete next[nextSessionKey];
+      return next;
+    });
+    setRecordSaveStateByChildId({});
+    setNoteSaveStateByChildId({});
+    setMemoFeedback("idle");
+    setMemoError("");
+    setMemoPage(1);
+    setSessionDate(nextSessionDate);
+    setViewMode("daily");
   }
 
   async function handleSaveMemo() {
@@ -263,21 +328,59 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
             </div>
           </div>
 
+          <div
+            aria-label="출석 보기 방식"
+            className="mt-5 grid grid-cols-2 rounded-[12px] bg-[#f1f1f1] p-1"
+            role="group"
+          >
+            <button
+              aria-pressed={viewMode === "daily"}
+              className={cn(
+                "min-h-11 rounded-[10px] text-sm font-extrabold transition-colors",
+                viewMode === "daily" ? "bg-white text-almost-black" : "text-graphite",
+              )}
+              disabled={isContextLocked}
+              onClick={() => changeViewMode("daily")}
+              type="button"
+            >
+              일별 체크
+            </button>
+            <button
+              aria-pressed={viewMode === "monthly"}
+              className={cn(
+                "min-h-11 rounded-[10px] text-sm font-extrabold transition-colors",
+                viewMode === "monthly" ? "bg-white text-almost-black" : "text-graphite",
+              )}
+              disabled={isContextLocked}
+              onClick={() => changeViewMode("monthly")}
+              type="button"
+            >
+              월간 현황
+            </button>
+          </div>
+
           <div className="mt-5 grid min-w-0 gap-3 sm:grid-cols-2">
             <label className="block min-w-0">
-              <span className="text-sm font-extrabold text-charcoal">날짜</span>
+              <span className="text-sm font-extrabold text-charcoal">
+                {viewMode === "daily" ? "날짜" : "월"}
+              </span>
               <input
                 className="mt-2 min-h-12 w-full max-w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-2 text-sm font-bold text-almost-black sm:px-3 sm:text-base"
                 disabled={isContextLocked}
                 onChange={(event) => {
                   setRecordSaveStateByChildId({});
+                  setNoteSaveStateByChildId({});
                   setMemoFeedback("idle");
                   setMemoError("");
                   setMemoPage(1);
-                  setSessionDate(event.target.value);
+                  if (viewMode === "daily") {
+                    setSessionDate(event.target.value);
+                  } else {
+                    setMonthValue(event.target.value);
+                  }
                 }}
-                type="date"
-                value={sessionDate}
+                type={viewMode === "daily" ? "date" : "month"}
+                value={viewMode === "daily" ? sessionDate : monthValue}
               />
             </label>
             <label className="block min-w-0">
@@ -287,6 +390,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
                 disabled={isContextLocked}
                 onChange={(event) => {
                   setRecordSaveStateByChildId({});
+                  setNoteSaveStateByChildId({});
                   setMemoFeedback("idle");
                   setMemoError("");
                   setMemoPage(1);
@@ -305,6 +409,15 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
           </div>
         </header>
 
+        {viewMode === "monthly" ? (
+          <MonthlyAttendanceOverview
+            classId={selectedClassId}
+            isReady={isReady}
+            monthValue={monthValue}
+            onOpenDate={openDailyDate}
+          />
+        ) : (
+          <>
         <section className="mt-4 rounded-[12px] border-2 border-cloud-gray p-4 sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -332,9 +445,13 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
             <div className="mt-4 grid gap-3">
               {children.map((child) => {
                 const record = activeDraft.records[child.id] ?? getChildRecord(session, child.id);
+                const storedRecord = getChildRecord(session, child.id);
                 const recordSaveState = recordSaveStateByChildId[child.id] ?? "idle";
                 const isSavingRecord = recordSaveState === "saving";
                 const recordSaveMessage = getRecordSaveMessage(recordSaveState);
+                const noteSaveState = noteSaveStateByChildId[child.id] ?? "idle";
+                const isSavingNote = noteSaveState === "saving";
+                const isNoteDirty = (record.note ?? "") !== (storedRecord.note ?? "");
                 return (
                   <article className="rounded-[12px] border-2 border-cloud-gray p-3" key={child.id}>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -382,6 +499,69 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
                           큐티
                         </button>
                       </div>
+                    </div>
+                    <div className="mt-3 border-t-2 border-cloud-gray pt-3">
+                      <label className="block text-xs font-extrabold text-graphite" htmlFor={`child-note-${child.id}`}>
+                        아이 메모
+                      </label>
+                      <div className="mt-2 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
+                        <input
+                          aria-describedby={`child-note-status-${child.id}`}
+                          className="min-h-11 min-w-0 rounded-[12px] border-2 border-cloud-gray px-3 text-base font-medium text-almost-black placeholder:text-silver"
+                          disabled={!isReady || isSavingNote}
+                          id={`child-note-${child.id}`}
+                          maxLength={100}
+                          onChange={(event) => {
+                            const note = event.target.value;
+                            setNoteSaveStateByChildId((current) => ({ ...current, [child.id]: "idle" }));
+                            setActiveDraft((current) => ({
+                              ...current,
+                              records: {
+                                ...current.records,
+                                [child.id]: {
+                                  ...(current.records[child.id] ?? storedRecord),
+                                  note,
+                                },
+                              },
+                            }));
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" && isNoteDirty && !isSavingNote) {
+                              event.preventDefault();
+                              void saveCurrentChildNote(child.id);
+                            }
+                          }}
+                          placeholder="짧은 메모"
+                          type="text"
+                          value={record.note ?? ""}
+                        />
+                        <button
+                          aria-busy={isSavingNote}
+                          aria-label={`${child.name} 아이 메모 ${noteSaveState === "error" ? "다시 저장" : "저장"}`}
+                          className="min-h-11 rounded-[12px] border-2 border-sky-blue px-3 text-sm font-extrabold text-sky-blue-text disabled:border-cloud-gray disabled:text-silver"
+                          disabled={!isReady || !isNoteDirty || isSavingNote}
+                          onClick={() => void saveCurrentChildNote(child.id)}
+                          type="button"
+                        >
+                          {isSavingNote ? "저장 중" : noteSaveState === "error" ? "다시 저장" : "저장"}
+                        </button>
+                      </div>
+                      <p
+                        aria-live="polite"
+                        className={cn(
+                          "mt-1 min-h-5 text-right text-xs font-extrabold",
+                          noteSaveState === "error" ? "text-bubblegum-pink" : "text-graphite",
+                        )}
+                        id={`child-note-status-${child.id}`}
+                      >
+                        {noteSaveState === "saved"
+                          ? "아이 메모 저장됨"
+                          : noteSaveState === "error"
+                            ? "저장하지 못했습니다. 입력 내용은 남아 있습니다."
+                            : isNoteDirty
+                              ? "메모 변경 있음"
+                              : ""}
+                      </p>
                     </div>
                     <div className="mt-2 flex min-h-6 items-center justify-end gap-2">
                       <p
@@ -544,6 +724,8 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
           </div>
           </section>
         ) : null}
+          </>
+        )}
       </div>
       {selectedChild ? (
         <ChildDetailModal

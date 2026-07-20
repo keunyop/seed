@@ -205,7 +205,7 @@ export function ReportsClient() {
 
       return {
         title,
-        summary: `${bucket.participantCount}명 · 총 ${bucket.totalCompletions}회 완료`,
+        summary: `${bucket.participantCount}명`,
         emptyMessage: "이 달에는 큐티를 3회 이상 완료한 아이가 없습니다.",
         items,
         copyText: [title, ...items.map((item) => `${item.child.name} - ${item.meta}`)].join("\n"),

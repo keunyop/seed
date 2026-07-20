@@ -329,6 +329,7 @@ test("reports show accessible bar details, avatar/list views, and integrated mem
   await page.keyboard.press("Tab");
   await expect(closeButton).toBeFocused();
   await expect(dialog.getByRole("img", { name: "김출석 아바타" })).toBeVisible();
+  await expect(dialog.getByRole("article")).toHaveCount(0);
   await expect(dialog.getByText("김출석", { exact: true })).toHaveCount(0);
   await expect(dialog.getByText("박큐티", { exact: true })).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: "아바타" })).toHaveAttribute("aria-pressed", "true");
@@ -340,8 +341,10 @@ test("reports show accessible bar details, avatar/list views, and integrated mem
 
   await page.getByRole("button", { name: "2026년 7월 큐티 완료자 1명, 상세 보기" }).click();
   dialog = page.getByRole("dialog", { name: "2026년 7월 큐티 완료자" });
-  await expect(dialog.getByText("1명 · 총 3회 완료")).toBeVisible();
+  await expect(dialog.getByText("1명")).toBeVisible();
+  await expect(dialog.getByText("총 3회 완료")).toHaveCount(0);
   await expect(dialog.getByRole("img", { name: "김출석 아바타" })).toBeVisible();
+  await expect(dialog.getByRole("article")).toHaveCount(0);
   await expect(dialog.getByText("박큐티", { exact: true })).toHaveCount(0);
   await dialog.getByRole("button", { name: "통계 상세 닫기" }).click();
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createAttendanceMemoInsertRow,
+  createAttendanceRecordNoteUpsertRow,
   createAttendanceRecordUpsertRow,
   createAttendanceRecordInsertRows,
   createAttendanceSessionUpsertRow,
@@ -101,7 +102,7 @@ describe("Supabase attendance write helpers", () => {
 
   it("builds record rows only for the saved session", () => {
     const rows = createAttendanceRecordInsertRows("session-1", {
-      "child-1": { status: "present", qtCompleted: true },
+      "child-1": { status: "present", qtCompleted: true, note: "기도 제목 있음" },
       "child-2": { qtCompleted: false },
     });
 
@@ -112,6 +113,7 @@ describe("Supabase attendance write helpers", () => {
         child_id: "child-1",
         status: "present",
         qt_completed: true,
+        note: "기도 제목 있음",
       },
       {
         organization_id: DEFAULT_ORGANIZATION_ID,
@@ -119,6 +121,7 @@ describe("Supabase attendance write helpers", () => {
         child_id: "child-2",
         status: null,
         qt_completed: false,
+        note: "",
       },
     ]);
   });
@@ -132,12 +135,27 @@ describe("Supabase attendance write helpers", () => {
   });
 
   it("builds one record upsert row", () => {
-    expect(createAttendanceRecordUpsertRow("session-1", "child-1", { status: "present", qtCompleted: true })).toEqual({
+    expect(
+      createAttendanceRecordUpsertRow("session-1", "child-1", {
+        status: "present",
+        qtCompleted: true,
+        note: "  짧은 메모  ",
+      }),
+    ).toEqual({
       organization_id: DEFAULT_ORGANIZATION_ID,
       session_id: "session-1",
       child_id: "child-1",
       status: "present",
       qt_completed: true,
+      });
+  });
+
+  it("builds a note-only upsert row without attendance fields", () => {
+    expect(createAttendanceRecordNoteUpsertRow("session-1", "child-1", "  짧은 메모  ")).toEqual({
+      organization_id: DEFAULT_ORGANIZATION_ID,
+      session_id: "session-1",
+      child_id: "child-1",
+      note: "짧은 메모",
     });
   });
 

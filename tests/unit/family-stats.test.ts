@@ -14,10 +14,12 @@ import {
   getClassLabel,
   getDashboardSummary,
   getMonthlyQtDetails,
+  getMonthlyAttendanceOverview,
   getMonthlyBirthdayBuckets,
   getMonthlyQtBuckets,
   getRecentWeeklyAttendanceBuckets,
   getSession,
+  getSundaysInMonth,
   getTeacherName,
   getWeeklyAttendanceDetails,
   getWeeklyAttendanceBuckets,
@@ -171,6 +173,58 @@ describe("family open stats", () => {
     expect(buckets.map((bucket) => bucket.sessionDate)).toEqual(["2026-07-05", "2026-07-12", "2026-07-19"]);
     expect(buckets.map((bucket) => bucket.presentCount)).toEqual([0, 1, 0]);
     expect(() => getWeeklyAttendanceBuckets(store, "2026-07-06", 3)).toThrow("must be a Sunday");
+  });
+
+  it("builds a mobile monthly overview from every Sunday for the currently selected class", () => {
+    const store = createDefaultFamilyOpenStore();
+    store.children.push({
+      id: "child-inactive",
+      name: "비활성 아이",
+      classId: "class-kindergarten",
+      isActive: false,
+    });
+    store.attendanceByDate = {
+      "2026-07-05": {
+        sessionDate: "2026-07-05",
+        note: "",
+        savedAt: "2026-07-05T20:00:00.000Z",
+        records: {
+          "child-harin": { status: "present", qtCompleted: true },
+          "child-joon": { status: "present", qtCompleted: true },
+          "child-inactive": { status: "present", qtCompleted: true },
+        },
+      },
+      "2026-07-12": {
+        sessionDate: "2026-07-12",
+        note: "",
+        savedAt: "2026-07-12T20:00:00.000Z",
+        records: {
+          "child-harin": { status: "absent", qtCompleted: true },
+        },
+      },
+    };
+
+    expect(getSundaysInMonth("2026-07")).toEqual([
+      "2026-07-05",
+      "2026-07-12",
+      "2026-07-19",
+      "2026-07-26",
+    ]);
+    expect(getSundaysInMonth("2026-08")).toHaveLength(5);
+
+    const overview = getMonthlyAttendanceOverview(store, "class-kindergarten", "2026-07");
+
+    expect(overview.children.map((item) => item.child.id)).toEqual(["child-joon", "child-harin"]);
+    expect(overview.children.map(({ child, presentCount, qtCount }) => [child.id, presentCount, qtCount])).toEqual([
+      ["child-joon", 1, 1],
+      ["child-harin", 1, 2],
+    ]);
+    expect(overview.dates.map(({ presentCount, qtCount, recordedCount }) => [presentCount, qtCount, recordedCount])).toEqual([
+      [2, 2, 2],
+      [0, 1, 1],
+      [0, 0, 0],
+      [0, 0, 0],
+    ]);
   });
 
   it("builds twelve qt buckets with unique participants, per-child completions, totals, and empty months", () => {

@@ -141,6 +141,7 @@ function buildAttendanceByDate(sessions: AttendanceSessionRow[], records: Attend
     sessionRecords[record.child_id] = {
       status: record.status ?? undefined,
       qtCompleted: record.qt_completed,
+      note: fromNullableText(record.note),
     };
     recordsBySessionId.set(record.session_id, sessionRecords);
   }
@@ -176,6 +177,7 @@ export function createAttendanceRecordInsertRows(sessionId: string, records: Att
     child_id: childId,
     status: record.status ?? null,
     qt_completed: record.qtCompleted,
+    note: record.note?.trim() ?? "",
   }));
 }
 
@@ -194,6 +196,15 @@ export function createAttendanceRecordUpsertRow(sessionId: string, childId: stri
     child_id: childId,
     status: record.status ?? null,
     qt_completed: record.qtCompleted,
+  };
+}
+
+export function createAttendanceRecordNoteUpsertRow(sessionId: string, childId: string, note: string) {
+  return {
+    organization_id: DEFAULT_ORGANIZATION_ID,
+    session_id: sessionId,
+    child_id: childId,
+    note: note.trim(),
   };
 }
 
@@ -522,6 +533,46 @@ export async function saveAttendanceRecordWithClient(
   return { ok: true, message: "" };
 }
 
+export async function saveAttendanceRecordNoteWithClient(
+  supabase: FamilySupabaseClient,
+  sessionDate: string,
+  childId: string,
+  note: string,
+  savedAt: string,
+): Promise<RemoteWriteResult> {
+  const organizationError = await ensureDefaultOrganization(supabase);
+
+  if (organizationError) {
+    return { ok: false, message: organizationError.message };
+  }
+
+  const { data: savedSession, error: sessionError } = await upsertAttendanceSessionForDate(
+    supabase,
+    sessionDate,
+    savedAt,
+  );
+
+  if (sessionError) {
+    return { ok: false, message: sessionError.message };
+  }
+
+  if (!savedSession) {
+    return { ok: false, message: "출석 세션을 저장하지 못했습니다." };
+  }
+
+  const { error: recordError } = await supabase
+    .from("attendance_records")
+    .upsert(createAttendanceRecordNoteUpsertRow(savedSession.id, childId, note), {
+      onConflict: "session_id,child_id",
+    });
+
+  if (recordError) {
+    return { ok: false, message: recordError.message };
+  }
+
+  return { ok: true, message: "" };
+}
+
 export async function saveAttendanceMemoWithClient(
   supabase: FamilySupabaseClient,
   memo: AttendanceMemo,
@@ -822,6 +873,21 @@ export async function saveAttendanceRecordToSupabase(
   }
 
   return saveAttendanceRecordWithClient(supabase, sessionDate, childId, record, savedAt);
+}
+
+export async function saveAttendanceRecordNoteToSupabase(
+  sessionDate: string,
+  childId: string,
+  note: string,
+  savedAt: string,
+) {
+  const supabase = createFamilyOpenSupabaseClient();
+
+  if (!supabase) {
+    return { ok: false, message: "Supabase 환경변수가 설정되지 않았습니다." };
+  }
+
+  return saveAttendanceRecordNoteWithClient(supabase, sessionDate, childId, note, savedAt);
 }
 
 export async function saveAttendanceMemoToSupabase(memo: AttendanceMemo) {

@@ -11,6 +11,7 @@ export type Database = {
           child_id: string;
           status: "present" | "absent" | null;
           qt_completed: boolean;
+          note: string;
           created_at: string;
           updated_at: string;
         };
@@ -21,6 +22,7 @@ export type Database = {
           child_id: string;
           status?: "present" | "absent" | null;
           qt_completed?: boolean;
+          note?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -31,6 +33,7 @@ export type Database = {
           child_id?: string;
           status?: "present" | "absent" | null;
           qt_completed?: boolean;
+          note?: string;
           created_at?: string;
           updated_at?: string;
         };

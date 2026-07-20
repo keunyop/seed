@@ -5,6 +5,7 @@ const ORGANIZATION_ID = "00000000-0000-0000-0000-000000000001";
 test("mobile WebKit saves attendance rows immediately and memo separately", async ({ page }) => {
   const mutations: Array<{ method: string; table: string; body: unknown }> = [];
   let shouldFailRecordUpsert = true;
+  let shouldFailNoteUpsert = true;
 
   await page.route("**/rest/v1/**", async (route) => {
     const request = route.request();
@@ -109,6 +110,18 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
       return json({ id: "11111111-1111-4111-8111-111111111111" }, 201);
     }
 
+    const isNoteOnlyRecordUpsert =
+      table === "attendance_records" &&
+      method === "POST" &&
+      typeof body === "object" &&
+      body !== null &&
+      "note" in body;
+
+    if (isNoteOnlyRecordUpsert && shouldFailNoteUpsert) {
+      shouldFailNoteUpsert = false;
+      return json({ message: "temporary note failure" }, 500);
+    }
+
     if (table === "attendance_records" && method === "POST" && shouldFailRecordUpsert) {
       shouldFailRecordUpsert = false;
       return json({ message: "temporary failure" }, 500);
@@ -141,8 +154,40 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
   await expect(row.getByRole("button", { name: "큐티" })).toHaveAttribute("aria-pressed", "true");
   await expect(row.getByText("저장됨")).toBeVisible();
 
+  const childNote = row.getByRole("textbox", { name: "아이 메모", exact: true });
+  await childNote.fill("다음 주 교재 전달");
+  await row.getByRole("button", { name: "아이폰테스트 아이 메모 저장" }).click();
+  await expect(row.getByText("저장하지 못했습니다. 입력 내용은 남아 있습니다.")).toBeVisible();
+  await expect(childNote).toHaveValue("다음 주 교재 전달");
+  await row.getByRole("button", { name: "아이폰테스트 아이 메모 다시 저장" }).click();
+  await expect(row.getByText("아이 메모 저장됨")).toBeVisible();
+
+  const savedNoteInsert = mutations
+    .filter(
+      (item) =>
+        item.method === "POST" &&
+        item.table === "attendance_records" &&
+        typeof item.body === "object" &&
+        item.body !== null &&
+        "note" in item.body,
+    )
+    .at(-1);
+  expect(savedNoteInsert?.body).toEqual({
+    organization_id: ORGANIZATION_ID,
+    session_id: "11111111-1111-4111-8111-111111111111",
+    child_id: "child-ios",
+    note: "다음 주 교재 전달",
+  });
+
   const savedRecordInsert = mutations
-    .filter((item) => item.method === "POST" && item.table === "attendance_records")
+    .filter(
+      (item) =>
+        item.method === "POST" &&
+        item.table === "attendance_records" &&
+        typeof item.body === "object" &&
+        item.body !== null &&
+        !("note" in item.body),
+    )
     .at(-1);
   expect(savedRecordInsert?.body).toEqual({
     organization_id: ORGANIZATION_ID,
@@ -195,6 +240,25 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
     note: "메모만 저장",
     is_secret: true,
   });
+
+  await page.getByRole("button", { name: "월간 현황" }).click();
+  await expect(page.getByRole("heading", { name: "주일별 한눈에 보기" })).toBeVisible();
+  await page.getByRole("textbox", { name: "월", exact: true }).fill("2026-07");
+  const monthlyChild = page.locator("details").filter({ hasText: "아이폰테스트" });
+  await monthlyChild.locator("summary").click();
+  const pastAttendanceButton = monthlyChild.getByRole("button", {
+    name: "아이폰테스트 7월 5일 출석",
+  });
+  await pastAttendanceButton.click();
+  await expect(pastAttendanceButton).toHaveAttribute("aria-pressed", "true");
+  await expect(monthlyChild.getByText("저장됨").last()).toBeVisible();
+
+  const monthlyOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+  expect(monthlyOverflow).toBe(false);
+
+  await page.getByRole("button", { name: /^7월 5일/ }).first().click();
+  await expect(page.getByRole("textbox", { name: "날짜", exact: true })).toHaveValue("2026-07-05");
+  await expect(page.getByRole("button", { name: "일별 체크" })).toHaveAttribute("aria-pressed", "true");
 
   const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   expect(hasHorizontalOverflow).toBe(false);

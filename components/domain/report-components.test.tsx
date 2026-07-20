@@ -118,7 +118,7 @@ describe("report components", () => {
               emptyMessage="명단 없음"
               items={[{ id: child.id, child, meta: "새싹반 · 1회 완료" }]}
               onClose={() => setOpen(false)}
-              summary="1명 · 총 1회 완료"
+              summary="1명"
               title="7월 큐티 완료자"
             />
           ) : null}
@@ -138,7 +138,9 @@ describe("report components", () => {
     await waitFor(() => expect(closeButton).toHaveFocus());
     expect(gridButton).toHaveAttribute("aria-pressed", "true");
     expect(within(dialog).getByRole("img", { name: "김새싹 아바타" })).toBeVisible();
-    expect(within(dialog).getByText("1명 · 총 1회 완료")).toBeVisible();
+    expect(within(dialog).getByText("1명")).toBeVisible();
+    expect(within(dialog).queryByText("총 1회 완료")).not.toBeInTheDocument();
+    expect(within(dialog).queryAllByRole("article")).toHaveLength(0);
     expect(within(dialog).queryByText("김새싹")).not.toBeInTheDocument();
     expect(within(dialog).queryByText("새싹반 · 1회 완료")).not.toBeInTheDocument();
 

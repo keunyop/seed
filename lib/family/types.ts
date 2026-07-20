@@ -50,6 +50,7 @@ export type FamilyChild = {
 export type AttendanceRecord = {
   status?: AttendanceStatus;
   qtCompleted: boolean;
+  note?: string;
 };
 
 export type AttendanceSession = {

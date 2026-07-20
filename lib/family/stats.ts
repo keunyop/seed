@@ -18,6 +18,20 @@ import { getNearestWeekdayDate } from "@/lib/dates/service-week";
 
 export type ChildrenSortMode = "name" | "class";
 
+export type MonthlyAttendanceOverview = {
+  dates: Array<{
+    sessionDate: string;
+    presentCount: number;
+    qtCount: number;
+    recordedCount: number;
+  }>;
+  children: Array<{
+    child: FamilyChild;
+    presentCount: number;
+    qtCount: number;
+  }>;
+};
+
 export const RECENT_ATTENDANCE_WEEK_COUNT = 8;
 
 const koreanNameCollator = new Intl.Collator("ko-KR", { sensitivity: "base" });
@@ -346,6 +360,60 @@ function assertCalendarMonth(month: number) {
   if (!Number.isInteger(month) || month < 1 || month > 12) {
     throw new Error("Month must be an integer from 1 to 12.");
   }
+}
+
+export function getSundaysInMonth(monthValue: string) {
+  const match = /^(\d{4})-(\d{2})$/.exec(monthValue);
+  if (!match) {
+    throw new Error("Month must use YYYY-MM format.");
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  assertCalendarYear(year);
+  assertCalendarMonth(month);
+
+  const date = new Date(Date.UTC(year, month - 1, 1));
+  date.setUTCDate(1 + ((7 - date.getUTCDay()) % 7));
+  const sundays: string[] = [];
+
+  while (date.getUTCMonth() === month - 1) {
+    sundays.push(date.toISOString().slice(0, 10));
+    date.setUTCDate(date.getUTCDate() + 7);
+  }
+
+  return sundays;
+}
+
+export function getMonthlyAttendanceOverview(
+  store: FamilyOpenStore,
+  classId: string | undefined,
+  monthValue: string,
+): MonthlyAttendanceOverview {
+  const children = getAttendanceRosterChildren(store, classId);
+  const dates = getSundaysInMonth(monthValue);
+
+  return {
+    dates: dates.map((sessionDate) => {
+      const session = getSession(store, sessionDate);
+      const records = children.map((child) => session.records[child.id]).filter(Boolean);
+      return {
+        sessionDate,
+        presentCount: records.filter((record) => record.status === "present").length,
+        qtCount: records.filter((record) => record.qtCompleted).length,
+        recordedCount: records.length,
+      };
+    }),
+    children: children.map((child) => ({
+      child,
+      presentCount: dates.filter(
+        (sessionDate) => getChildRecord(getSession(store, sessionDate), child.id).status === "present",
+      ).length,
+      qtCount: dates.filter(
+        (sessionDate) => getChildRecord(getSession(store, sessionDate), child.id).qtCompleted,
+      ).length,
+    })),
+  };
 }
 
 function shiftCalendarMonth(year: number, month: number, offset: number) {
