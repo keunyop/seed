@@ -3,6 +3,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { safeParsePublicEnv } from "@/lib/env";
 import { createEmptyFamilyOpenStore } from "@/lib/family/default-store";
 import { normalizeFamilyOpenStore } from "@/lib/family/store-persistence";
+import {
+  DEFAULT_MINISTRY_GROUP,
+  type MinistryGroup,
+} from '@/lib/family/ministry-group';
 import type {
   AttendanceMemo,
   AttendanceRecord,
@@ -19,6 +23,7 @@ import type { Database } from "@/types/database.generated";
 
 export const DEFAULT_ORGANIZATION_ID = "00000000-0000-0000-0000-000000000001";
 export const FAMILY_OPEN_APP_STATE_ID = "default";
+const ATTENDANCE_SESSION_CONFLICT_COLUMNS = 'organization_id,ministry_group,session_date';
 
 type RemoteStoreResult =
   | { ok: true; store: FamilyOpenStore }
@@ -160,9 +165,13 @@ function buildAttendanceByDate(sessions: AttendanceSessionRow[], records: Attend
   );
 }
 
-export function createAttendanceSessionUpsertRow(session: AttendanceSession) {
+export function createAttendanceSessionUpsertRow(
+  session: AttendanceSession,
+  ministryGroup: MinistryGroup = DEFAULT_MINISTRY_GROUP,
+) {
   return {
     organization_id: DEFAULT_ORGANIZATION_ID,
+    ministry_group: ministryGroup,
     session_date: session.sessionDate,
     note: session.note,
     share_with_pastor: session.shareWithPastor ?? false,
@@ -170,9 +179,14 @@ export function createAttendanceSessionUpsertRow(session: AttendanceSession) {
   };
 }
 
-export function createAttendanceRecordInsertRows(sessionId: string, records: AttendanceSession["records"]) {
+export function createAttendanceRecordInsertRows(
+  sessionId: string,
+  records: AttendanceSession["records"],
+  ministryGroup: MinistryGroup = DEFAULT_MINISTRY_GROUP,
+) {
   return Object.entries(records).map(([childId, record]) => ({
     organization_id: DEFAULT_ORGANIZATION_ID,
+    ministry_group: ministryGroup,
     session_id: sessionId,
     child_id: childId,
     status: record.status ?? null,
@@ -181,17 +195,28 @@ export function createAttendanceRecordInsertRows(sessionId: string, records: Att
   }));
 }
 
-export function createAttendanceSessionTouchRow(sessionDate: string, savedAt: string) {
+export function createAttendanceSessionTouchRow(
+  sessionDate: string,
+  savedAt: string,
+  ministryGroup: MinistryGroup = DEFAULT_MINISTRY_GROUP,
+) {
   return {
     organization_id: DEFAULT_ORGANIZATION_ID,
+    ministry_group: ministryGroup,
     session_date: sessionDate,
     saved_at: optionalDate(savedAt),
   };
 }
 
-export function createAttendanceRecordUpsertRow(sessionId: string, childId: string, record: AttendanceRecord) {
+export function createAttendanceRecordUpsertRow(
+  sessionId: string,
+  childId: string,
+  record: AttendanceRecord,
+  ministryGroup: MinistryGroup = DEFAULT_MINISTRY_GROUP,
+) {
   return {
     organization_id: DEFAULT_ORGANIZATION_ID,
+    ministry_group: ministryGroup,
     session_id: sessionId,
     child_id: childId,
     status: record.status ?? null,
@@ -199,19 +224,29 @@ export function createAttendanceRecordUpsertRow(sessionId: string, childId: stri
   };
 }
 
-export function createAttendanceRecordNoteUpsertRow(sessionId: string, childId: string, note: string) {
+export function createAttendanceRecordNoteUpsertRow(
+  sessionId: string,
+  childId: string,
+  note: string,
+  ministryGroup: MinistryGroup = DEFAULT_MINISTRY_GROUP,
+) {
   return {
     organization_id: DEFAULT_ORGANIZATION_ID,
+    ministry_group: ministryGroup,
     session_id: sessionId,
     child_id: childId,
     note: note.trim(),
   };
 }
 
-export function createAttendanceMemoInsertRow(memo: AttendanceMemo) {
+export function createAttendanceMemoInsertRow(
+  memo: AttendanceMemo,
+  ministryGroup: MinistryGroup = DEFAULT_MINISTRY_GROUP,
+) {
   return {
     id: memo.id,
     organization_id: DEFAULT_ORGANIZATION_ID,
+    ministry_group: ministryGroup,
     session_date: memo.sessionDate,
     class_id: optionalText(memo.classId),
     teacher_id: optionalText(memo.teacherId),
@@ -232,7 +267,7 @@ async function ensureDefaultOrganization(supabase: FamilySupabaseClient) {
     id: DEFAULT_ORGANIZATION_ID,
     slug: "default",
     name: "밴쿠버한인침례교회",
-    department: "초등부",
+    department: '초등부 · AWANA',
   });
 
   return error;
@@ -242,19 +277,27 @@ async function upsertAttendanceSessionForDate(
   supabase: FamilySupabaseClient,
   sessionDate: string,
   savedAt: string,
+  ministryGroup: MinistryGroup,
 ) {
   return supabase
     .from("attendance_sessions")
-    .upsert(createAttendanceSessionTouchRow(sessionDate, savedAt), { onConflict: "organization_id,session_date" })
+    .upsert(createAttendanceSessionTouchRow(sessionDate, savedAt, ministryGroup), {
+      onConflict: ATTENDANCE_SESSION_CONFLICT_COLUMNS,
+    })
     .select("id")
     .single();
 }
 
-async function deleteMissingClasses(supabase: FamilySupabaseClient, nextClassIds: Set<string>) {
+async function deleteMissingClasses(
+  supabase: FamilySupabaseClient,
+  nextClassIds: Set<string>,
+  ministryGroup: MinistryGroup,
+) {
   const { data, error } = await supabase
     .from("classes")
     .select("id")
-    .eq("organization_id", DEFAULT_ORGANIZATION_ID);
+    .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+    .eq('ministry_group', ministryGroup);
 
   if (error) {
     return error;
@@ -266,6 +309,7 @@ async function deleteMissingClasses(supabase: FamilySupabaseClient, nextClassIds
       .from("classes")
       .delete()
       .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+      .eq('ministry_group', ministryGroup)
       .eq("id", classId);
 
     if (deleteError) {
@@ -276,11 +320,16 @@ async function deleteMissingClasses(supabase: FamilySupabaseClient, nextClassIds
   return null;
 }
 
-async function deleteMissingTeachers(supabase: FamilySupabaseClient, nextTeacherIds: Set<string>) {
+async function deleteMissingTeachers(
+  supabase: FamilySupabaseClient,
+  nextTeacherIds: Set<string>,
+  ministryGroup: MinistryGroup,
+) {
   const { data, error } = await supabase
     .from("teachers")
     .select("id")
-    .eq("organization_id", DEFAULT_ORGANIZATION_ID);
+    .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+    .eq('ministry_group', ministryGroup);
 
   if (error) {
     return error;
@@ -292,6 +341,7 @@ async function deleteMissingTeachers(supabase: FamilySupabaseClient, nextTeacher
       .from("teachers")
       .delete()
       .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+      .eq('ministry_group', ministryGroup)
       .eq("id", teacherId);
 
     if (deleteError) {
@@ -302,11 +352,16 @@ async function deleteMissingTeachers(supabase: FamilySupabaseClient, nextTeacher
   return null;
 }
 
-async function deleteMissingChildren(supabase: FamilySupabaseClient, nextChildIds: Set<string>) {
+async function deleteMissingChildren(
+  supabase: FamilySupabaseClient,
+  nextChildIds: Set<string>,
+  ministryGroup: MinistryGroup,
+) {
   const { data, error } = await supabase
     .from("children")
     .select("id")
-    .eq("organization_id", DEFAULT_ORGANIZATION_ID);
+    .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+    .eq('ministry_group', ministryGroup);
 
   if (error) {
     return error;
@@ -318,6 +373,7 @@ async function deleteMissingChildren(supabase: FamilySupabaseClient, nextChildId
       .from("children")
       .delete()
       .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+      .eq('ministry_group', ministryGroup)
       .eq("id", childId);
 
     if (deleteError) {
@@ -328,11 +384,16 @@ async function deleteMissingChildren(supabase: FamilySupabaseClient, nextChildId
   return null;
 }
 
-async function replaceChildParents(supabase: FamilySupabaseClient, store: FamilyOpenStore) {
+async function replaceChildParents(
+  supabase: FamilySupabaseClient,
+  store: FamilyOpenStore,
+  ministryGroup: MinistryGroup,
+) {
   const { error: deleteError } = await supabase
     .from("child_parents")
     .delete()
-    .eq("organization_id", DEFAULT_ORGANIZATION_ID);
+    .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+    .eq('ministry_group', ministryGroup);
 
   if (deleteError) {
     return deleteError;
@@ -342,6 +403,7 @@ async function replaceChildParents(supabase: FamilySupabaseClient, store: Family
     (child.parents ?? []).map((parent, parentIndex) => ({
       id: parent.id,
       organization_id: DEFAULT_ORGANIZATION_ID,
+      ministry_group: ministryGroup,
       child_id: child.id,
       relation: parent.relation,
       name: parent.name,
@@ -358,22 +420,27 @@ async function replaceChildParents(supabase: FamilySupabaseClient, store: Family
   return error;
 }
 
-async function replaceAttendance(supabase: FamilySupabaseClient, store: FamilyOpenStore) {
+async function replaceAttendance(
+  supabase: FamilySupabaseClient,
+  store: FamilyOpenStore,
+  ministryGroup: MinistryGroup,
+) {
   const sessions = Object.values(store.attendanceByDate);
 
   if (sessions.length === 0) {
     const { error } = await supabase
       .from("attendance_sessions")
       .delete()
-      .eq("organization_id", DEFAULT_ORGANIZATION_ID);
+      .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+      .eq('ministry_group', ministryGroup);
     return error;
   }
 
-  const sessionRows = sessions.map(createAttendanceSessionUpsertRow);
+  const sessionRows = sessions.map((session) => createAttendanceSessionUpsertRow(session, ministryGroup));
 
   const { error: upsertSessionsError } = await supabase
     .from("attendance_sessions")
-    .upsert(sessionRows, { onConflict: "organization_id,session_date" });
+    .upsert(sessionRows, { onConflict: ATTENDANCE_SESSION_CONFLICT_COLUMNS });
 
   if (upsertSessionsError) {
     return upsertSessionsError;
@@ -383,7 +450,8 @@ async function replaceAttendance(supabase: FamilySupabaseClient, store: FamilyOp
   const { data: existingSessions, error: existingSessionsError } = await supabase
     .from("attendance_sessions")
     .select("id, session_date")
-    .eq("organization_id", DEFAULT_ORGANIZATION_ID);
+    .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+    .eq('ministry_group', ministryGroup);
 
   if (existingSessionsError) {
     return existingSessionsError;
@@ -398,6 +466,7 @@ async function replaceAttendance(supabase: FamilySupabaseClient, store: FamilyOp
       .from("attendance_sessions")
       .delete()
       .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+      .eq('ministry_group', ministryGroup)
       .eq("id", session.id);
 
     if (deleteSessionError) {
@@ -414,7 +483,8 @@ async function replaceAttendance(supabase: FamilySupabaseClient, store: FamilyOp
   const { error: deleteRecordsError } = await supabase
     .from("attendance_records")
     .delete()
-    .eq("organization_id", DEFAULT_ORGANIZATION_ID);
+    .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+    .eq('ministry_group', ministryGroup);
 
   if (deleteRecordsError) {
     return deleteRecordsError;
@@ -426,7 +496,7 @@ async function replaceAttendance(supabase: FamilySupabaseClient, store: FamilyOp
       return [];
     }
 
-    return createAttendanceRecordInsertRows(sessionId, session.records);
+    return createAttendanceRecordInsertRows(sessionId, session.records, ministryGroup);
   });
 
   if (recordRows.length === 0) {
@@ -437,8 +507,12 @@ async function replaceAttendance(supabase: FamilySupabaseClient, store: FamilyOp
   return error;
 }
 
-async function upsertAttendanceMemos(supabase: FamilySupabaseClient, store: FamilyOpenStore) {
-  const memoRows = store.attendanceMemos.map(createAttendanceMemoInsertRow);
+async function upsertAttendanceMemos(
+  supabase: FamilySupabaseClient,
+  store: FamilyOpenStore,
+  ministryGroup: MinistryGroup,
+) {
+  const memoRows = store.attendanceMemos.map((memo) => createAttendanceMemoInsertRow(memo, ministryGroup));
   if (memoRows.length === 0) {
     return null;
   }
@@ -450,6 +524,7 @@ async function upsertAttendanceMemos(supabase: FamilySupabaseClient, store: Fami
 export async function saveAttendanceSessionWithClient(
   supabase: FamilySupabaseClient,
   session: AttendanceSession,
+  ministryGroup: MinistryGroup = DEFAULT_MINISTRY_GROUP,
 ): Promise<RemoteWriteResult> {
   const organizationError = await ensureDefaultOrganization(supabase);
 
@@ -459,7 +534,9 @@ export async function saveAttendanceSessionWithClient(
 
   const { data: savedSession, error: sessionError } = await supabase
     .from("attendance_sessions")
-    .upsert(createAttendanceSessionUpsertRow(session), { onConflict: "organization_id,session_date" })
+    .upsert(createAttendanceSessionUpsertRow(session, ministryGroup), {
+      onConflict: ATTENDANCE_SESSION_CONFLICT_COLUMNS,
+    })
     .select("id")
     .single();
 
@@ -475,13 +552,14 @@ export async function saveAttendanceSessionWithClient(
     .from("attendance_records")
     .delete()
     .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+    .eq('ministry_group', ministryGroup)
     .eq("session_id", savedSession.id);
 
   if (deleteRecordsError) {
     return { ok: false, message: deleteRecordsError.message };
   }
 
-  const recordRows = createAttendanceRecordInsertRows(savedSession.id, session.records);
+  const recordRows = createAttendanceRecordInsertRows(savedSession.id, session.records, ministryGroup);
   if (recordRows.length === 0) {
     return { ok: true, message: "" };
   }
@@ -501,6 +579,7 @@ export async function saveAttendanceRecordWithClient(
   childId: string,
   record: AttendanceRecord,
   savedAt: string,
+  ministryGroup: MinistryGroup = DEFAULT_MINISTRY_GROUP,
 ): Promise<RemoteWriteResult> {
   const organizationError = await ensureDefaultOrganization(supabase);
 
@@ -512,6 +591,7 @@ export async function saveAttendanceRecordWithClient(
     supabase,
     sessionDate,
     savedAt,
+    ministryGroup,
   );
 
   if (sessionError) {
@@ -524,7 +604,9 @@ export async function saveAttendanceRecordWithClient(
 
   const { error: recordError } = await supabase
     .from("attendance_records")
-    .upsert(createAttendanceRecordUpsertRow(savedSession.id, childId, record), { onConflict: "session_id,child_id" });
+    .upsert(createAttendanceRecordUpsertRow(savedSession.id, childId, record, ministryGroup), {
+      onConflict: "session_id,child_id",
+    });
 
   if (recordError) {
     return { ok: false, message: recordError.message };
@@ -539,6 +621,7 @@ export async function saveAttendanceRecordNoteWithClient(
   childId: string,
   note: string,
   savedAt: string,
+  ministryGroup: MinistryGroup = DEFAULT_MINISTRY_GROUP,
 ): Promise<RemoteWriteResult> {
   const organizationError = await ensureDefaultOrganization(supabase);
 
@@ -550,6 +633,7 @@ export async function saveAttendanceRecordNoteWithClient(
     supabase,
     sessionDate,
     savedAt,
+    ministryGroup,
   );
 
   if (sessionError) {
@@ -562,7 +646,7 @@ export async function saveAttendanceRecordNoteWithClient(
 
   const { error: recordError } = await supabase
     .from("attendance_records")
-    .upsert(createAttendanceRecordNoteUpsertRow(savedSession.id, childId, note), {
+    .upsert(createAttendanceRecordNoteUpsertRow(savedSession.id, childId, note, ministryGroup), {
       onConflict: "session_id,child_id",
     });
 
@@ -576,6 +660,7 @@ export async function saveAttendanceRecordNoteWithClient(
 export async function saveAttendanceMemoWithClient(
   supabase: FamilySupabaseClient,
   memo: AttendanceMemo,
+  ministryGroup: MinistryGroup = DEFAULT_MINISTRY_GROUP,
 ): Promise<RemoteWriteResult> {
   const organizationError = await ensureDefaultOrganization(supabase);
 
@@ -583,7 +668,9 @@ export async function saveAttendanceMemoWithClient(
     return { ok: false, message: organizationError.message };
   }
 
-  const { error } = await supabase.from("attendance_memos").insert(createAttendanceMemoInsertRow(memo));
+  const { error } = await supabase
+    .from("attendance_memos")
+    .insert(createAttendanceMemoInsertRow(memo, ministryGroup));
 
   if (error) {
     return { ok: false, message: error.message };
@@ -597,6 +684,7 @@ export async function setAttendanceMemoAcknowledgementWithClient(
   memoId: string,
   acknowledgedAt?: string,
   acknowledgedByTeacherId?: string,
+  ministryGroup: MinistryGroup = DEFAULT_MINISTRY_GROUP,
 ): Promise<RemoteWriteResult> {
   const { error } = await supabase
     .from("attendance_memos")
@@ -605,6 +693,7 @@ export async function setAttendanceMemoAcknowledgementWithClient(
       acknowledged_by_teacher_id: optionalText(acknowledgedByTeacherId),
     })
     .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+    .eq('ministry_group', ministryGroup)
     .eq("id", memoId);
 
   if (error) {
@@ -618,11 +707,13 @@ export async function saveChildPhotoWithClient(
   supabase: FamilySupabaseClient,
   childId: string,
   photoDataUrl: string,
+  ministryGroup: MinistryGroup = DEFAULT_MINISTRY_GROUP,
 ): Promise<RemoteWriteResult> {
   const { data, error } = await supabase
     .from("children")
     .update(createChildPhotoUpdateRow(photoDataUrl))
     .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+    .eq('ministry_group', ministryGroup)
     .eq("id", childId)
     .select("id")
     .maybeSingle();
@@ -638,7 +729,9 @@ export function isFamilyOpenSupabaseConfigured() {
   return createFamilyOpenSupabaseClient() !== null;
 }
 
-export async function loadFamilyOpenStoreFromSupabase(): Promise<RemoteStoreResult> {
+export async function loadFamilyOpenStoreFromSupabase(
+  ministryGroup: MinistryGroup = DEFAULT_MINISTRY_GROUP,
+): Promise<RemoteStoreResult> {
   const emptyStore = createEmptyFamilyOpenStore();
   const supabase = createFamilyOpenSupabaseClient();
 
@@ -663,32 +756,42 @@ export async function loadFamilyOpenStoreFromSupabase(): Promise<RemoteStoreResu
       .from("teachers")
       .select("*")
       .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+      .eq('ministry_group', ministryGroup)
       .order("sort_order", { ascending: true }),
     supabase
       .from("classes")
       .select("*")
       .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+      .eq('ministry_group', ministryGroup)
       .order("sort_order", { ascending: true }),
     supabase
       .from("child_parents")
       .select("*")
       .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+      .eq('ministry_group', ministryGroup)
       .order("sort_order", { ascending: true }),
     supabase
       .from("children")
       .select("*")
       .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+      .eq('ministry_group', ministryGroup)
       .order("sort_order", { ascending: true }),
     supabase
       .from("attendance_sessions")
       .select("*")
       .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+      .eq('ministry_group', ministryGroup)
       .order("session_date", { ascending: true }),
-    supabase.from("attendance_records").select("*").eq("organization_id", DEFAULT_ORGANIZATION_ID),
+    supabase
+      .from("attendance_records")
+      .select("*")
+      .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+      .eq('ministry_group', ministryGroup),
     supabase
       .from("attendance_memos")
       .select("*")
       .eq("organization_id", DEFAULT_ORGANIZATION_ID)
+      .eq('ministry_group', ministryGroup)
       .order("saved_at", { ascending: false }),
   ]);
 
@@ -738,7 +841,11 @@ export async function loadFamilyOpenStoreFromSupabase(): Promise<RemoteStoreResu
   return { ok: true, store: normalizeFamilyOpenStore(store) };
 }
 
-export async function saveFamilyOpenStoreWithClient(supabase: FamilySupabaseClient, store: FamilyOpenStore) {
+export async function saveFamilyOpenStoreWithClient(
+  supabase: FamilySupabaseClient,
+  store: FamilyOpenStore,
+  ministryGroup: MinistryGroup = DEFAULT_MINISTRY_GROUP,
+) {
   const normalizedStore = normalizeFamilyOpenStore(store);
   const organizationError = await ensureDefaultOrganization(supabase);
 
@@ -749,6 +856,7 @@ export async function saveFamilyOpenStoreWithClient(supabase: FamilySupabaseClie
   const teacherRows = normalizedStore.teachers.map((teacher, index) => ({
     id: teacher.id,
     organization_id: DEFAULT_ORGANIZATION_ID,
+    ministry_group: ministryGroup,
     name: teacher.name,
     photo_data_url: optionalText(teacher.photoDataUrl),
     birth_date: optionalDate(teacher.birthDate),
@@ -770,6 +878,7 @@ export async function saveFamilyOpenStoreWithClient(supabase: FamilySupabaseClie
   const classRows = normalizedStore.classes.map((item, index) => ({
     id: item.id,
     organization_id: DEFAULT_ORGANIZATION_ID,
+    ministry_group: ministryGroup,
     name: item.name,
     teacher_id: optionalText(item.teacherId),
     sort_order: index,
@@ -785,6 +894,7 @@ export async function saveFamilyOpenStoreWithClient(supabase: FamilySupabaseClie
   const childRows = normalizedStore.children.map((child, index) => ({
     id: child.id,
     organization_id: DEFAULT_ORGANIZATION_ID,
+    ministry_group: ministryGroup,
     class_id: optionalText(child.classId),
     name: child.name,
     photo_data_url: optionalText(child.photoDataUrl),
@@ -811,6 +921,7 @@ export async function saveFamilyOpenStoreWithClient(supabase: FamilySupabaseClie
   const deleteClassesError = await deleteMissingClasses(
     supabase,
     new Set(normalizedStore.classes.map((item) => item.id)),
+    ministryGroup,
   );
   if (deleteClassesError) {
     return { ok: false, message: deleteClassesError.message };
@@ -819,6 +930,7 @@ export async function saveFamilyOpenStoreWithClient(supabase: FamilySupabaseClie
   const deleteChildrenError = await deleteMissingChildren(
     supabase,
     new Set(normalizedStore.children.map((child) => child.id)),
+    ministryGroup,
   );
   if (deleteChildrenError) {
     return { ok: false, message: deleteChildrenError.message };
@@ -827,22 +939,23 @@ export async function saveFamilyOpenStoreWithClient(supabase: FamilySupabaseClie
   const deleteTeachersError = await deleteMissingTeachers(
     supabase,
     new Set(normalizedStore.teachers.map((teacher) => teacher.id)),
+    ministryGroup,
   );
   if (deleteTeachersError) {
     return { ok: false, message: deleteTeachersError.message };
   }
 
-  const parentError = await replaceChildParents(supabase, normalizedStore);
+  const parentError = await replaceChildParents(supabase, normalizedStore, ministryGroup);
   if (parentError) {
     return { ok: false, message: parentError.message };
   }
 
-  const attendanceError = await replaceAttendance(supabase, normalizedStore);
+  const attendanceError = await replaceAttendance(supabase, normalizedStore, ministryGroup);
   if (attendanceError) {
     return { ok: false, message: attendanceError.message };
   }
 
-  const attendanceMemosError = await upsertAttendanceMemos(supabase, normalizedStore);
+  const attendanceMemosError = await upsertAttendanceMemos(supabase, normalizedStore, ministryGroup);
   if (attendanceMemosError) {
     return { ok: false, message: attendanceMemosError.message };
   }
@@ -850,14 +963,17 @@ export async function saveFamilyOpenStoreWithClient(supabase: FamilySupabaseClie
   return { ok: true, message: "" };
 }
 
-export async function saveAttendanceSessionToSupabase(session: AttendanceSession) {
+export async function saveAttendanceSessionToSupabase(
+  session: AttendanceSession,
+  ministryGroup: MinistryGroup = DEFAULT_MINISTRY_GROUP,
+) {
   const supabase = createFamilyOpenSupabaseClient();
 
   if (!supabase) {
     return { ok: false, message: "Supabase 환경변수가 설정되지 않았습니다." };
   }
 
-  return saveAttendanceSessionWithClient(supabase, session);
+  return saveAttendanceSessionWithClient(supabase, session, ministryGroup);
 }
 
 export async function saveAttendanceRecordToSupabase(
@@ -865,6 +981,7 @@ export async function saveAttendanceRecordToSupabase(
   childId: string,
   record: AttendanceRecord,
   savedAt: string,
+  ministryGroup: MinistryGroup = DEFAULT_MINISTRY_GROUP,
 ) {
   const supabase = createFamilyOpenSupabaseClient();
 
@@ -872,7 +989,7 @@ export async function saveAttendanceRecordToSupabase(
     return { ok: false, message: "Supabase 환경변수가 설정되지 않았습니다." };
   }
 
-  return saveAttendanceRecordWithClient(supabase, sessionDate, childId, record, savedAt);
+  return saveAttendanceRecordWithClient(supabase, sessionDate, childId, record, savedAt, ministryGroup);
 }
 
 export async function saveAttendanceRecordNoteToSupabase(
@@ -880,6 +997,7 @@ export async function saveAttendanceRecordNoteToSupabase(
   childId: string,
   note: string,
   savedAt: string,
+  ministryGroup: MinistryGroup = DEFAULT_MINISTRY_GROUP,
 ) {
   const supabase = createFamilyOpenSupabaseClient();
 
@@ -887,23 +1005,27 @@ export async function saveAttendanceRecordNoteToSupabase(
     return { ok: false, message: "Supabase 환경변수가 설정되지 않았습니다." };
   }
 
-  return saveAttendanceRecordNoteWithClient(supabase, sessionDate, childId, note, savedAt);
+  return saveAttendanceRecordNoteWithClient(supabase, sessionDate, childId, note, savedAt, ministryGroup);
 }
 
-export async function saveAttendanceMemoToSupabase(memo: AttendanceMemo) {
+export async function saveAttendanceMemoToSupabase(
+  memo: AttendanceMemo,
+  ministryGroup: MinistryGroup = DEFAULT_MINISTRY_GROUP,
+) {
   const supabase = createFamilyOpenSupabaseClient();
 
   if (!supabase) {
     return { ok: false, message: "Supabase 환경변수가 설정되지 않았습니다." };
   }
 
-  return saveAttendanceMemoWithClient(supabase, memo);
+  return saveAttendanceMemoWithClient(supabase, memo, ministryGroup);
 }
 
 export async function setAttendanceMemoAcknowledgementInSupabase(
   memoId: string,
   acknowledgedAt?: string,
   acknowledgedByTeacherId?: string,
+  ministryGroup: MinistryGroup = DEFAULT_MINISTRY_GROUP,
 ) {
   const supabase = createFamilyOpenSupabaseClient();
 
@@ -916,25 +1038,33 @@ export async function setAttendanceMemoAcknowledgementInSupabase(
     memoId,
     acknowledgedAt,
     acknowledgedByTeacherId,
+    ministryGroup,
   );
 }
 
-export async function saveChildPhotoToSupabase(childId: string, photoDataUrl: string) {
+export async function saveChildPhotoToSupabase(
+  childId: string,
+  photoDataUrl: string,
+  ministryGroup: MinistryGroup = DEFAULT_MINISTRY_GROUP,
+) {
   const supabase = createFamilyOpenSupabaseClient();
 
   if (!supabase) {
     return { ok: false, message: "Supabase 환경변수가 설정되지 않았습니다." };
   }
 
-  return saveChildPhotoWithClient(supabase, childId, photoDataUrl);
+  return saveChildPhotoWithClient(supabase, childId, photoDataUrl, ministryGroup);
 }
 
-export async function saveFamilyOpenStoreToSupabase(store: FamilyOpenStore) {
+export async function saveFamilyOpenStoreToSupabase(
+  store: FamilyOpenStore,
+  ministryGroup: MinistryGroup = DEFAULT_MINISTRY_GROUP,
+) {
   const supabase = createFamilyOpenSupabaseClient();
 
   if (!supabase) {
     return { ok: false, message: "Supabase 환경변수가 설정되지 않았습니다." };
   }
 
-  return saveFamilyOpenStoreWithClient(supabase, store);
+  return saveFamilyOpenStoreWithClient(supabase, store, ministryGroup);
 }

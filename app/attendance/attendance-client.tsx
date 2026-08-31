@@ -24,6 +24,7 @@ import {
 } from "@/lib/family/stats";
 import { cn } from "@/lib/utils";
 import type { AttendanceRecord, FamilyChild } from "@/lib/family/types";
+import { getActivityLabel } from '@/lib/family/ministry-group';
 
 type AttendanceClientProps = {
   initialClassId?: string;
@@ -113,6 +114,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
   const {
     store,
     isReady,
+    ministryGroup,
     saveAttendanceRecord,
     saveAttendanceRecordNote,
     saveAttendanceMemo,
@@ -120,6 +122,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
     deleteChild,
     saveChildPhoto,
   } = useFamilyOpenStore();
+  const activityLabel = getActivityLabel(ministryGroup);
   const { currentTeacherId, isAdmin, isAuthenticated } = useTeacherAuth();
   const [sessionDate, setSessionDate] = useState(() => getNearestWeekdayDate(getLocalIsoDate(), 0));
   const [viewMode, setViewMode] = useState<AttendanceViewMode>("daily");
@@ -142,7 +145,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
   );
   const classNameById = useMemo(() => new Map(store.classes.map((item) => [item.id, item.name])), [store.classes]);
   const session = useMemo(() => getSession(store, sessionDate), [sessionDate, store]);
-  const sessionKey = `${sessionDate}:${selectedClassValue}:${isReady ? "ready" : "loading"}`;
+  const sessionKey = `${ministryGroup}:${sessionDate}:${selectedClassValue}:${isReady ? "ready" : "loading"}`;
   const freshDraft = useMemo<AttendanceDraft>(() => ({
     sessionDate,
     sessionKey,
@@ -240,7 +243,9 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
 
   function changeViewMode(nextMode: AttendanceViewMode) {
     if (nextMode === "monthly") {
-      setMonthValue(sessionDate.slice(0, 7));
+      if (ministryGroup === 'elementary') {
+        setMonthValue(sessionDate.slice(0, 7));
+      }
       if (selectedClassValue === ALL_CLASSES_VALUE && currentTeacherId) {
         const homeroomClass = store.classes.find((item) => item.teacherId === currentTeacherId);
         if (homeroomClass) {
@@ -252,7 +257,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
   }
 
   function openDailyDate(nextSessionDate: string) {
-    const nextSessionKey = `${nextSessionDate}:${selectedClassValue}:${isReady ? "ready" : "loading"}`;
+    const nextSessionKey = `${ministryGroup}:${nextSessionDate}:${selectedClassValue}:${isReady ? "ready" : "loading"}`;
     setDraftState((current) => {
       const next = { ...current };
       delete next[nextSessionKey];
@@ -355,11 +360,17 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
               onClick={() => changeViewMode("monthly")}
               type="button"
             >
-              월간 현황
+              {ministryGroup === 'awana' ? '전체 현황' : '월간 현황'}
             </button>
           </div>
 
-          <div className="mt-5 grid min-w-0 gap-3 sm:grid-cols-2">
+          <div
+            className={cn(
+              'mt-5 grid min-w-0 gap-3',
+              viewMode === 'daily' || ministryGroup === 'elementary' ? 'sm:grid-cols-2' : 'sm:grid-cols-1',
+            )}
+          >
+            {viewMode === 'daily' || ministryGroup === 'elementary' ? (
             <label className="block min-w-0">
               <span className="text-sm font-extrabold text-charcoal">
                 {viewMode === "daily" ? "날짜" : "월"}
@@ -383,6 +394,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
                 value={viewMode === "daily" ? sessionDate : monthValue}
               />
             </label>
+            ) : null}
             <label className="block min-w-0">
               <span className="text-sm font-extrabold text-charcoal">반</span>
               <select
@@ -496,7 +508,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
                           onClick={() => toggleDraftQt(child.id)}
                           type="button"
                         >
-                          큐티
+                          {activityLabel}
                         </button>
                       </div>
                     </div>

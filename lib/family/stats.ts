@@ -390,8 +390,26 @@ export function getMonthlyAttendanceOverview(
   classId: string | undefined,
   monthValue: string,
 ): MonthlyAttendanceOverview {
-  const children = getAttendanceRosterChildren(store, classId);
   const dates = getSundaysInMonth(monthValue);
+
+  return getAttendanceOverviewForDates(store, classId, dates);
+}
+
+export function getAllAttendanceOverview(
+  store: FamilyOpenStore,
+  classId?: string,
+): MonthlyAttendanceOverview {
+  const dates = Object.keys(store.attendanceByDate).sort((a, b) => b.localeCompare(a));
+
+  return getAttendanceOverviewForDates(store, classId, dates);
+}
+
+export function getAttendanceOverviewForDates(
+  store: FamilyOpenStore,
+  classId: string | undefined,
+  dates: string[],
+): MonthlyAttendanceOverview {
+  const children = getAttendanceRosterChildren(store, classId);
 
   return {
     dates: dates.map((sessionDate) => {

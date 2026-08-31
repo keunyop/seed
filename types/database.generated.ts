@@ -7,6 +7,7 @@ export type Database = {
         Row: {
           id: string;
           organization_id: string;
+          ministry_group: 'elementary' | 'awana';
           session_id: string;
           child_id: string;
           status: "present" | "absent" | null;
@@ -18,6 +19,7 @@ export type Database = {
         Insert: {
           id?: string;
           organization_id: string;
+          ministry_group: 'elementary' | 'awana';
           session_id: string;
           child_id: string;
           status?: "present" | "absent" | null;
@@ -29,6 +31,7 @@ export type Database = {
         Update: {
           id?: string;
           organization_id?: string;
+          ministry_group?: 'elementary' | 'awana';
           session_id?: string;
           child_id?: string;
           status?: "present" | "absent" | null;
@@ -43,6 +46,7 @@ export type Database = {
         Row: {
           id: string;
           organization_id: string;
+          ministry_group: 'elementary' | 'awana';
           session_date: string;
           class_id: string | null;
           teacher_id: string | null;
@@ -57,6 +61,7 @@ export type Database = {
         Insert: {
           id?: string;
           organization_id: string;
+          ministry_group: 'elementary' | 'awana';
           session_date: string;
           class_id?: string | null;
           teacher_id?: string | null;
@@ -71,6 +76,7 @@ export type Database = {
         Update: {
           id?: string;
           organization_id?: string;
+          ministry_group?: 'elementary' | 'awana';
           session_date?: string;
           class_id?: string | null;
           teacher_id?: string | null;
@@ -88,6 +94,7 @@ export type Database = {
         Row: {
           id: string;
           organization_id: string;
+          ministry_group: 'elementary' | 'awana';
           session_date: string;
           note: string;
           share_with_pastor: boolean;
@@ -98,6 +105,7 @@ export type Database = {
         Insert: {
           id?: string;
           organization_id: string;
+          ministry_group: 'elementary' | 'awana';
           session_date: string;
           note?: string;
           share_with_pastor?: boolean;
@@ -108,6 +116,7 @@ export type Database = {
         Update: {
           id?: string;
           organization_id?: string;
+          ministry_group?: 'elementary' | 'awana';
           session_date?: string;
           note?: string;
           share_with_pastor?: boolean;
@@ -121,6 +130,7 @@ export type Database = {
         Row: {
           id: string;
           organization_id: string;
+          ministry_group: 'elementary' | 'awana';
           child_id: string;
           relation: "father" | "mother" | "other";
           name: string;
@@ -132,6 +142,7 @@ export type Database = {
         Insert: {
           id: string;
           organization_id: string;
+          ministry_group: 'elementary' | 'awana';
           child_id: string;
           relation?: "father" | "mother" | "other";
           name?: string;
@@ -143,6 +154,7 @@ export type Database = {
         Update: {
           id?: string;
           organization_id?: string;
+          ministry_group?: 'elementary' | 'awana';
           child_id?: string;
           relation?: "father" | "mother" | "other";
           name?: string;
@@ -157,6 +169,7 @@ export type Database = {
         Row: {
           id: string;
           organization_id: string;
+          ministry_group: 'elementary' | 'awana';
           class_id: string | null;
           name: string;
           photo_data_url: string | null;
@@ -177,6 +190,7 @@ export type Database = {
         Insert: {
           id: string;
           organization_id: string;
+          ministry_group: 'elementary' | 'awana';
           class_id?: string | null;
           name: string;
           photo_data_url?: string | null;
@@ -197,6 +211,7 @@ export type Database = {
         Update: {
           id?: string;
           organization_id?: string;
+          ministry_group?: 'elementary' | 'awana';
           class_id?: string | null;
           name?: string;
           photo_data_url?: string | null;
@@ -220,6 +235,7 @@ export type Database = {
         Row: {
           id: string;
           organization_id: string;
+          ministry_group: 'elementary' | 'awana';
           name: string;
           teacher_id: string | null;
           sort_order: number;
@@ -229,6 +245,7 @@ export type Database = {
         Insert: {
           id: string;
           organization_id: string;
+          ministry_group: 'elementary' | 'awana';
           name: string;
           teacher_id?: string | null;
           sort_order?: number;
@@ -238,6 +255,7 @@ export type Database = {
         Update: {
           id?: string;
           organization_id?: string;
+          ministry_group?: 'elementary' | 'awana';
           name?: string;
           teacher_id?: string | null;
           sort_order?: number;
@@ -298,6 +316,7 @@ export type Database = {
         Row: {
           id: string;
           organization_id: string;
+          ministry_group: 'elementary' | 'awana';
           name: string;
           photo_data_url: string | null;
           birth_date: string | null;
@@ -313,6 +332,7 @@ export type Database = {
         Insert: {
           id: string;
           organization_id: string;
+          ministry_group: 'elementary' | 'awana';
           name: string;
           photo_data_url?: string | null;
           birth_date?: string | null;
@@ -328,6 +348,7 @@ export type Database = {
         Update: {
           id?: string;
           organization_id?: string;
+          ministry_group?: 'elementary' | 'awana';
           name?: string;
           photo_data_url?: string | null;
           birth_date?: string | null;

@@ -174,6 +174,7 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
     .at(-1);
   expect(savedNoteInsert?.body).toEqual({
     organization_id: ORGANIZATION_ID,
+    ministry_group: 'elementary',
     session_id: "11111111-1111-4111-8111-111111111111",
     child_id: "child-ios",
     note: "다음 주 교재 전달",
@@ -191,6 +192,7 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
     .at(-1);
   expect(savedRecordInsert?.body).toEqual({
     organization_id: ORGANIZATION_ID,
+    ministry_group: 'elementary',
     session_id: "11111111-1111-4111-8111-111111111111",
     child_id: "child-ios",
     status: "present",
@@ -235,6 +237,7 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
       .at(-1)?.body,
   ).toMatchObject({
     organization_id: ORGANIZATION_ID,
+    ministry_group: 'elementary',
     class_id: "class-ios",
     teacher_id: "teacher-ios",
     note: "메모만 저장",
@@ -262,4 +265,25 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
 
   const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   expect(hasHorizontalOverflow).toBe(false);
+
+  await page.getByRole('button', { name: 'AWANA' }).click();
+  await expect(page.getByRole('heading', { name: '선생님 로그인' })).toBeVisible();
+  await page.getByRole('button', { name: '로그인' }).click();
+
+  const awanaRow = page.locator('article').filter({ hasText: '아이폰테스트' });
+  await expect(awanaRow.getByRole('button', { name: '암송' })).toBeVisible();
+  await awanaRow.getByRole('button', { name: '암송' }).click();
+  await expect(awanaRow.getByText('저장됨')).toBeVisible();
+  expect(
+    mutations
+      .filter((item) => item.method === 'POST' && item.table === 'attendance_records')
+      .at(-1)?.body,
+  ).toMatchObject({ ministry_group: 'awana' });
+
+  await page.getByRole('button', { name: '전체 현황' }).click();
+  await expect(page.getByRole('heading', { name: '아이별 전체 현황' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: '월', exact: true })).toHaveCount(0);
+
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'AWANA' })).toHaveAttribute('aria-pressed', 'true');
 });

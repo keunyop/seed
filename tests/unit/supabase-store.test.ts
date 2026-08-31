@@ -22,25 +22,45 @@ type RecordedMutation = {
   value?: unknown;
 };
 
+type MockFilterResult = { data: unknown; error: null };
+type MockFilterChain = PromiseLike<MockFilterResult> & {
+  eq: (column: string, filterValue: unknown) => MockFilterChain;
+};
+
+function createMockFilterChain(
+  result: MockFilterResult,
+  onFilter?: (column: string, filterValue: unknown) => void,
+) {
+  const promise = Promise.resolve(result);
+  const chain: MockFilterChain = {
+    eq(column, filterValue) {
+      onFilter?.(column, filterValue);
+      return chain;
+    },
+    then: promise.then.bind(promise),
+  };
+  return chain;
+}
+
 function createSupabaseClientMock(options?: { updateData?: { id: string } | null; updateError?: { message: string } | null }) {
   const mutations: RecordedMutation[] = [];
   const client = {
     from(table: string) {
       return {
         delete() {
-          mutations.push({ operation: "delete", table });
-          return {
-            eq: async () => ({ data: null, error: null }),
-          };
+          const mutation: RecordedMutation = { operation: "delete", table, filters: [] };
+          mutations.push(mutation);
+          return createMockFilterChain(
+            { data: null, error: null },
+            (column, filterValue) => mutation.filters?.push([column, filterValue]),
+          );
         },
         insert: async (value: unknown) => {
           mutations.push({ operation: "insert", table, value });
           return { data: null, error: null };
         },
         select() {
-          return {
-            eq: async () => ({ data: [], error: null }),
-          };
+          return createMockFilterChain({ data: [], error: null });
         },
         update(value: unknown) {
           const mutation: RecordedMutation = { operation: "update", table, value, filters: [] };
@@ -93,6 +113,7 @@ describe("Supabase attendance write helpers", () => {
 
     expect(createAttendanceSessionUpsertRow(session)).toEqual({
       organization_id: DEFAULT_ORGANIZATION_ID,
+      ministry_group: "elementary",
       session_date: "2026-06-28",
       note: "이번 주 메모",
       share_with_pastor: true,
@@ -109,6 +130,7 @@ describe("Supabase attendance write helpers", () => {
     expect(rows).toEqual([
       {
         organization_id: DEFAULT_ORGANIZATION_ID,
+        ministry_group: "elementary",
         session_id: "session-1",
         child_id: "child-1",
         status: "present",
@@ -117,6 +139,7 @@ describe("Supabase attendance write helpers", () => {
       },
       {
         organization_id: DEFAULT_ORGANIZATION_ID,
+        ministry_group: "elementary",
         session_id: "session-1",
         child_id: "child-2",
         status: null,
@@ -129,6 +152,7 @@ describe("Supabase attendance write helpers", () => {
   it("builds a session touch row without memo fields", () => {
     expect(createAttendanceSessionTouchRow("2026-06-28", "2026-06-28T19:00:00.000Z")).toEqual({
       organization_id: DEFAULT_ORGANIZATION_ID,
+      ministry_group: "elementary",
       session_date: "2026-06-28",
       saved_at: "2026-06-28T19:00:00.000Z",
     });
@@ -143,6 +167,7 @@ describe("Supabase attendance write helpers", () => {
       }),
     ).toEqual({
       organization_id: DEFAULT_ORGANIZATION_ID,
+      ministry_group: "elementary",
       session_id: "session-1",
       child_id: "child-1",
       status: "present",
@@ -153,6 +178,7 @@ describe("Supabase attendance write helpers", () => {
   it("builds a note-only upsert row without attendance fields", () => {
     expect(createAttendanceRecordNoteUpsertRow("session-1", "child-1", "  짧은 메모  ")).toEqual({
       organization_id: DEFAULT_ORGANIZATION_ID,
+      ministry_group: "elementary",
       session_id: "session-1",
       child_id: "child-1",
       note: "짧은 메모",
@@ -173,6 +199,7 @@ describe("Supabase attendance write helpers", () => {
     ).toEqual({
       id: "11111111-1111-4111-8111-111111111111",
       organization_id: DEFAULT_ORGANIZATION_ID,
+      ministry_group: "elementary",
       session_date: "2026-06-28",
       class_id: "class-1",
       teacher_id: "teacher-1",
@@ -187,7 +214,7 @@ describe("Supabase attendance write helpers", () => {
     const photoDataUrl = "data:image/jpeg;base64,cGhvdG8=";
 
     expect(createChildPhotoUpdateRow(photoDataUrl)).toEqual({ photo_data_url: photoDataUrl });
-    await expect(saveChildPhotoWithClient(client, "child-1", photoDataUrl)).resolves.toEqual({
+    await expect(saveChildPhotoWithClient(client, "child-1", photoDataUrl, 'awana')).resolves.toEqual({
       ok: true,
       message: "",
     });
@@ -199,6 +226,7 @@ describe("Supabase attendance write helpers", () => {
         value: { photo_data_url: photoDataUrl },
         filters: [
           ["organization_id", DEFAULT_ORGANIZATION_ID],
+          ['ministry_group', 'awana'],
           ["id", "child-1"],
         ],
       },
@@ -233,6 +261,7 @@ describe("Supabase attendance write helpers", () => {
         memoId,
         "2026-07-12T20:00:00.000Z",
         "teacher-admin",
+        'awana',
       ),
     ).resolves.toEqual({ ok: true, message: "" });
     await expect(setAttendanceMemoAcknowledgementWithClient(client, memoId)).resolves.toEqual({
@@ -250,6 +279,7 @@ describe("Supabase attendance write helpers", () => {
         },
         filters: [
           ["organization_id", DEFAULT_ORGANIZATION_ID],
+          ['ministry_group', 'awana'],
           ["id", memoId],
         ],
       },
@@ -262,6 +292,7 @@ describe("Supabase attendance write helpers", () => {
         },
         filters: [
           ["organization_id", DEFAULT_ORGANIZATION_ID],
+          ['ministry_group', 'elementary'],
           ["id", memoId],
         ],
       },
@@ -291,7 +322,7 @@ describe("Supabase attendance write helpers", () => {
       ],
     };
 
-    await expect(saveFamilyOpenStoreWithClient(client, store)).resolves.toEqual({ ok: true, message: "" });
+    await expect(saveFamilyOpenStoreWithClient(client, store, 'awana')).resolves.toEqual({ ok: true, message: "" });
 
     expect(
       mutations.some((mutation) => mutation.table === "attendance_memos" && mutation.operation === "delete"),
@@ -306,6 +337,7 @@ describe("Supabase attendance write helpers", () => {
         {
           id: "11111111-1111-4111-8111-111111111111",
           organization_id: DEFAULT_ORGANIZATION_ID,
+          ministry_group: 'awana',
           session_date: "2026-06-28",
           class_id: "class-1",
           teacher_id: "teacher-1",

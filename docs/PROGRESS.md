@@ -1,5 +1,41 @@
 # Progress
 
+## 2026-08-31 초등부/AWANA 그룹 분리
+
+### 제품 결정
+
+- 기존 정규화 row는 `20260831000100_ministry_groups.sql` 적용 시 모두 `elementary`로 유지한다.
+- 모든 업무 테이블은 `ministry_group`으로 분리하고, 클라이언트의 모든 읽기·쓰기·삭제 요청은 `organization_id + ministry_group` 범위를 사용한다.
+- `attendance_records.qt_completed`는 초등부에서는 큐티, AWANA에서는 암송 완료 boolean으로 해석한다.
+- AWANA 출석의 두 번째 보기는 월 선택 없이 저장된 모든 날짜를 최신순으로 보여주는 `전체 현황`이다.
+
+### 완료
+
+- 모든 화면 상단 Seed 타이틀 옆에 44px 이상 `초등부`/`AWANA` 토글을 추가하고 선택을 새로고침 뒤에도 유지한다.
+- 대시보드, 아이, 선생님, 반, 출석, 메모, 통계, 설정 store를 선택 그룹별로 다시 로드하고 저장하도록 분리했다.
+- 교사 로그인 선택도 그룹별 localStorage 키로 분리하고 기존 초등부 캐시를 호환한다.
+- 그룹 컬럼, 기존 row 초등부 backfill, 그룹별 출석 날짜 unique, 그룹 일치 복합 FK/index를 포함한 migration과 generated type을 추가했다.
+- 초등부는 큐티·월간 현황을 유지하고, AWANA는 암송·전체 현황을 제공한다.
+- AWANA 통계에서 월별 생일자 카드를 숨기고 활동 통계 문구를 암송으로 변경했다.
+- 초등부 월별 큐티와 생일 통계의 최근 창을 현재 월 이전 1개월부터 이후 2개월까지 총 4개월로 변경했다.
+- 그룹 전환 중 이전 요청 응답이 새 그룹 store를 덮어쓰지 않도록 요청 그룹과 현재 그룹을 비교한다.
+- README와 MVP 설계서, 저장소·통계·DB·mock E2E 테스트를 실제 구현에 맞게 갱신했다.
+
+### 검증
+
+- `pnpm run typecheck`: 통과
+- `pnpm run lint`: 통과
+- `pnpm test`: 9 files, 62 tests 통과
+- `pnpm run test:db`: 1 file, 1 test 통과
+- `pnpm run build`: 통과
+- `pnpm run test:e2e:mock`: Chromium mobile/desktop, WebKit mobile 총 9 tests 통과
+- `git diff --check`: 오류 없음(LF/CRLF 안내만 출력)
+
+### 다음 단계
+
+- 운영 Supabase에 `20260831000100_ministry_groups.sql`을 앱 배포 전에 적용해야 한다.
+- 이번 작업은 운영 DB를 변경하지 않았으며 원격 초기화 E2E도 실행하지 않았다.
+
 ## 2026-07-19 월간 출석 확인, 아이별 날짜 메모, 통계 상세 정리
 
 ### 제품 기준
@@ -165,6 +201,7 @@
 ### 데이터/배포 영향
 - DB migration, 외부 패키지, 환경변수 변경은 없다.
 - 운영 반영에는 재배포가 필요하다.
+
 - 전체 store 저장의 메모 동작은 전량 교체에서 ID upsert로 바뀌며 기존 메모를 삭제하지 않는다.
 
 ### 남은 확인과 위험

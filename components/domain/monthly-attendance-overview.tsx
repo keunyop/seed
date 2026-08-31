@@ -4,7 +4,13 @@ import { Check, ChevronDown } from "lucide-react";
 import { useMemo, useState } from "react";
 import { ChildAvatar } from "@/components/domain/child-avatar";
 import { useFamilyOpenStore } from "@/components/domain/use-family-open-store";
-import { getChildRecord, getMonthlyAttendanceOverview, getSession } from "@/lib/family/stats";
+import {
+  getAllAttendanceOverview,
+  getChildRecord,
+  getMonthlyAttendanceOverview,
+  getSession,
+} from "@/lib/family/stats";
+import { getActivityLabel } from '@/lib/family/ministry-group';
 import { cn } from "@/lib/utils";
 import type { AttendanceRecord } from "@/lib/family/types";
 
@@ -21,7 +27,7 @@ function getRecordKey(sessionDate: string, childId: string) {
   return `${sessionDate}:${childId}`;
 }
 
-function formatSundayLabel(sessionDate: string) {
+function formatDateLabel(sessionDate: string) {
   const [, month, day] = sessionDate.split("-").map(Number);
   return `${month}월 ${day}일`;
 }
@@ -44,10 +50,14 @@ export function MonthlyAttendanceOverview({
   monthValue,
   onOpenDate,
 }: MonthlyAttendanceOverviewProps) {
-  const { store, saveAttendanceRecord } = useFamilyOpenStore();
+  const { store, saveAttendanceRecord, ministryGroup } = useFamilyOpenStore();
+  const isAllDates = ministryGroup === 'awana';
+  const activityLabel = getActivityLabel(ministryGroup);
   const overview = useMemo(
-    () => getMonthlyAttendanceOverview(store, classId, monthValue),
-    [classId, monthValue, store],
+    () => isAllDates
+      ? getAllAttendanceOverview(store, classId)
+      : getMonthlyAttendanceOverview(store, classId, monthValue),
+    [classId, isAllDates, monthValue, store],
   );
   const [drafts, setDrafts] = useState<Record<string, AttendanceRecord>>({});
   const [saveStates, setSaveStates] = useState<Record<string, RecordSaveState>>({});
@@ -78,7 +88,9 @@ export function MonthlyAttendanceOverview({
   if (!isReady) {
     return (
       <section className="mt-4 rounded-[12px] border-2 border-cloud-gray p-4 sm:p-6" role="status">
-        <p className="font-bold text-graphite">월간 출석 데이터를 불러오는 중입니다.</p>
+        <p className="font-bold text-graphite">
+          {isAllDates ? '전체 출석 데이터를 불러오는 중입니다.' : '월간 출석 데이터를 불러오는 중입니다.'}
+        </p>
       </section>
     );
   }
@@ -97,7 +109,9 @@ export function MonthlyAttendanceOverview({
     <>
       <section className="mt-4 rounded-[12px] border-2 border-cloud-gray p-4 sm:p-6">
         <div>
-          <h2 className="text-xl font-extrabold text-almost-black">주일별 한눈에 보기</h2>
+          <h2 className="text-xl font-extrabold text-almost-black">
+            {isAllDates ? '날짜별 한눈에 보기' : '주일별 한눈에 보기'}
+          </h2>
           <p className="mt-1 text-sm font-bold text-graphite">날짜를 누르면 그날의 일별 체크로 바로 이동합니다.</p>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -109,13 +123,13 @@ export function MonthlyAttendanceOverview({
               type="button"
             >
               <span className="block text-sm font-extrabold text-almost-black">
-                {formatSundayLabel(date.sessionDate)}
+                {formatDateLabel(date.sessionDate)}
               </span>
               {date.recordedCount === 0 ? (
                 <span className="mt-2 block text-xs font-extrabold text-bubblegum-pink">기록 없음</span>
               ) : (
                 <span className="mt-2 block text-xs font-bold leading-5 text-graphite">
-                  출석 {date.presentCount}명<br />큐티 {date.qtCount}명
+                  출석 {date.presentCount}명<br />{activityLabel} {date.qtCount}명
                 </span>
               )}
             </button>
@@ -125,9 +139,11 @@ export function MonthlyAttendanceOverview({
 
       <section className="mt-4 rounded-[12px] border-2 border-cloud-gray p-4 sm:p-6">
         <div>
-          <h2 className="text-xl font-extrabold text-almost-black">아이별 월간 현황</h2>
+          <h2 className="text-xl font-extrabold text-almost-black">
+            {isAllDates ? '아이별 전체 현황' : '아이별 월간 현황'}
+          </h2>
           <p className="mt-1 text-sm font-bold text-graphite">
-            아이 카드를 펼치면 지난 날짜의 출석과 큐티를 바로 보완할 수 있습니다.
+            아이 카드를 펼치면 지난 날짜의 출석과 {activityLabel}을 바로 보완할 수 있습니다.
           </p>
         </div>
         <div className="mt-4 grid gap-3">
@@ -138,7 +154,7 @@ export function MonthlyAttendanceOverview({
                 <div className="min-w-0 flex-1">
                   <h3 className="truncate text-lg font-extrabold text-almost-black">{child.name}</h3>
                   <p className="mt-1 text-sm font-bold text-graphite">
-                    출석 {presentCount}/{overview.dates.length} · 큐티 {qtCount}회
+                    출석 {presentCount}/{overview.dates.length} · {activityLabel} {qtCount}회
                   </p>
                 </div>
                 <ChevronDown
@@ -158,11 +174,11 @@ export function MonthlyAttendanceOverview({
                       <div className="rounded-[12px] bg-[#fafafa] p-2" key={sessionDate}>
                         <div className="grid min-w-0 grid-cols-[minmax(0,0.72fr)_repeat(2,minmax(0,1fr))] items-center gap-2">
                           <span className="text-sm font-extrabold text-charcoal">
-                            {formatSundayLabel(sessionDate)}
+                            {formatDateLabel(sessionDate)}
                           </span>
                           <button
                             aria-busy={isSaving}
-                            aria-label={`${child.name} ${formatSundayLabel(sessionDate)} 출석`}
+                            aria-label={`${child.name} ${formatDateLabel(sessionDate)} 출석`}
                             aria-pressed={record.status === "present"}
                             className={getToggleButtonClass(record.status === "present", "present")}
                             disabled={isSaving}
@@ -179,7 +195,7 @@ export function MonthlyAttendanceOverview({
                           </button>
                           <button
                             aria-busy={isSaving}
-                            aria-label={`${child.name} ${formatSundayLabel(sessionDate)} 큐티`}
+                            aria-label={`${child.name} ${formatDateLabel(sessionDate)} ${activityLabel}`}
                             aria-pressed={record.qtCompleted}
                             className={getToggleButtonClass(record.qtCompleted, "qt")}
                             disabled={isSaving}
@@ -191,7 +207,7 @@ export function MonthlyAttendanceOverview({
                             }
                             type="button"
                           >
-                            큐티
+                            {activityLabel}
                           </button>
                         </div>
                         {saveState !== "idle" ? (

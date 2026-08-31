@@ -1,12 +1,13 @@
 "use client";
 
 import type { FormEvent, ReactNode } from "react";
-import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { LockKeyhole, UserRoundCheck } from "lucide-react";
 import { useFamilyOpenStore } from "@/components/domain/use-family-open-store";
 import { PressableButton } from "@/components/ui/pressable-button";
 import { sortTeachersByName } from "@/lib/family/stats";
 import type { FamilyTeacher } from "@/lib/family/types";
+import type { MinistryGroup } from '@/lib/family/ministry-group';
 
 const TEACHER_AUTH_STORAGE_KEY = "seed-current-teacher-v1";
 
@@ -20,30 +21,47 @@ type TeacherAuthContextValue = {
 
 const TeacherAuthContext = createContext<TeacherAuthContextValue | null>(null);
 
-function readCachedTeacherId() {
+function getTeacherAuthStorageKey(ministryGroup: MinistryGroup) {
+  return `${TEACHER_AUTH_STORAGE_KEY}:${ministryGroup}`;
+}
+
+function readCachedTeacherId(ministryGroup: MinistryGroup) {
   if (typeof window === "undefined") {
     return "";
   }
 
   try {
-    return window.localStorage.getItem(TEACHER_AUTH_STORAGE_KEY) ?? "";
+    const scopedTeacherId = window.localStorage.getItem(getTeacherAuthStorageKey(ministryGroup));
+    if (scopedTeacherId) {
+      return scopedTeacherId;
+    }
+
+    return ministryGroup === 'elementary'
+      ? window.localStorage.getItem(TEACHER_AUTH_STORAGE_KEY) ?? ''
+      : '';
   } catch {
     return "";
   }
 }
 
-function writeCachedTeacherId(teacherId: string) {
+function writeCachedTeacherId(ministryGroup: MinistryGroup, teacherId: string) {
   try {
-    window.localStorage.setItem(TEACHER_AUTH_STORAGE_KEY, teacherId);
+    window.localStorage.setItem(getTeacherAuthStorageKey(ministryGroup), teacherId);
+    if (ministryGroup === 'elementary') {
+      window.localStorage.removeItem(TEACHER_AUTH_STORAGE_KEY);
+    }
     window.dispatchEvent(new Event("seed-teacher-auth-change"));
   } catch {
     // Login still works for the current tab when storage is unavailable.
   }
 }
 
-function removeCachedTeacherId() {
+function removeCachedTeacherId(ministryGroup: MinistryGroup) {
   try {
-    window.localStorage.removeItem(TEACHER_AUTH_STORAGE_KEY);
+    window.localStorage.removeItem(getTeacherAuthStorageKey(ministryGroup));
+    if (ministryGroup === 'elementary') {
+      window.localStorage.removeItem(TEACHER_AUTH_STORAGE_KEY);
+    }
     window.dispatchEvent(new Event("seed-teacher-auth-change"));
   } catch {
     // Storage access can be blocked by browser settings.
@@ -184,9 +202,14 @@ function TeacherLoginModal({
 }
 
 export function TeacherAuthProvider({ children }: { children: ReactNode }) {
-  const { store, isReady } = useFamilyOpenStore();
-  const storedTeacherId = useSyncExternalStore(subscribeTeacherAuth, readCachedTeacherId, () => "");
-  const [sessionTeacherId, setSessionTeacherId] = useState("");
+  const { store, isReady, ministryGroup } = useFamilyOpenStore();
+  const readCurrentGroupTeacherId = useCallback(
+    () => readCachedTeacherId(ministryGroup),
+    [ministryGroup],
+  );
+  const storedTeacherId = useSyncExternalStore(subscribeTeacherAuth, readCurrentGroupTeacherId, () => "");
+  const [sessionTeacher, setSessionTeacher] = useState<{ ministryGroup: MinistryGroup; teacherId: string } | null>(null);
+  const sessionTeacherId = sessionTeacher?.ministryGroup === ministryGroup ? sessionTeacher.teacherId : '';
   const cachedTeacherId = sessionTeacherId || storedTeacherId;
   const activeTeachersByStoreOrder = useMemo(
     () => store.teachers.filter((teacher) => teacher.isActive),
@@ -206,11 +229,11 @@ export function TeacherAuthProvider({ children }: { children: ReactNode }) {
       isAdmin,
       isAuthenticated,
       logout: () => {
-        removeCachedTeacherId();
-        setSessionTeacherId("");
+        removeCachedTeacherId(ministryGroup);
+        setSessionTeacher(null);
       },
     }),
-    [currentTeacher, isAdmin, isAuthenticated],
+    [currentTeacher, isAdmin, isAuthenticated, ministryGroup],
   );
 
   function handleLogin(teacherId: string) {
@@ -218,8 +241,8 @@ export function TeacherAuthProvider({ children }: { children: ReactNode }) {
       return { ok: false, message: "선생님을 선택해 주세요." };
     }
 
-    writeCachedTeacherId(teacherId);
-    setSessionTeacherId(teacherId);
+    writeCachedTeacherId(ministryGroup, teacherId);
+    setSessionTeacher({ ministryGroup, teacherId });
     return { ok: true, message: "" };
   }
 

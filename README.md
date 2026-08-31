@@ -1,21 +1,22 @@
 # Seed Attendance
 
-주일학교 교사가 모바일에서 출석과 큐티를 빠르게 기록하기 위한 패밀리 오픈 MVP 웹앱입니다.
+주일학교 교사가 모바일에서 초등부 출석·큐티와 AWANA 출석·암송을 분리해 빠르게 기록하는 패밀리 오픈 MVP 웹앱입니다.
 
 ## 현재 상태
 
 - 로그인 없는 패밀리 오픈 MVP로 범위가 변경되었습니다.
 - Next.js App Router, TypeScript strict, Tailwind CSS v4, pnpm 기반입니다.
-- 데이터는 Supabase 정규화 업무 테이블(`organizations`, `teachers`, `classes`, `children`, `child_parents`, `attendance_sessions`, `attendance_records`)에 저장합니다.
-- 앱 상태는 브라우저 `localStorage`에 저장하지 않고 Supabase DB를 기준으로 읽고 씁니다.
+- 데이터는 Supabase 정규화 업무 테이블(`organizations`, `teachers`, `classes`, `children`, `child_parents`, `attendance_sessions`, `attendance_records`, `attendance_memos`)에 저장합니다. 모든 업무 row는 `ministry_group`으로 초등부와 AWANA를 분리합니다.
+- 업무 데이터는 브라우저 `localStorage`에 저장하지 않고 Supabase DB를 기준으로 읽고 씁니다. 현재 그룹과 그룹별 마지막 로그인 교사만 브라우저 UI 선택값으로 저장합니다.
 - 앱 시작 시 이전 localStorage 저장 키(`seed-family-open-store-v1`)가 남아 있으면 삭제합니다.
 - 앱 런타임은 테스트용 기본 샘플 데이터를 초기 화면이나 빈 DB fallback으로 표시하지 않습니다. Supabase 로딩 중에는 로딩 상태를, 데이터가 없으면 빈 상태를 표시합니다.
 - 기존 `family_open_app_state` 단일 JSON 테이블은 이관 원본과 백업 용도로 유지합니다.
 - 아이 상세 정보와 보호자 연락처, 선택한 사진 Data URL도 Supabase 정규화 테이블에 저장합니다. 아이·선생님 사진은 `사진 찍기`와 `앨범에서 선택`을 분리해 제공하고, 160KB를 넘는 휴대폰 사진은 브라우저에서 자동 축소합니다. 기존 아이의 새 사진은 처리 직후 사진 한 필드만 바로 저장하며 실패하면 모달에서 재시도할 수 있습니다.
 - 생년월일을 모르는 아이는 생일 필드를 비워 등록할 수 있으며, 월간 생일자 통계에서는 제외됩니다.
-- 출석 화면은 일별 체크와 월간 현황을 제공합니다. 월간 현황에서는 선택 월의 모든 주일과 현재 반 아이별 출석·큐티 횟수를 보고 지난 날짜를 바로 수정할 수 있습니다.
+- 모든 화면 상단의 Seed 타이틀 옆에서 `초등부`와 `AWANA`를 전환합니다. 명단·반·선생님·출석·메모·통계는 선택 그룹만 조회하고 저장합니다.
+- 초등부 출석 화면은 큐티와 월간 현황을 제공합니다. AWANA는 큐티 대신 암송을 체크하고, 월 선택 없이 저장된 모든 날짜를 최신순으로 확인·수정하는 전체 현황을 제공합니다.
 - 일별 아이 카드의 한 줄 메모는 해당 날짜의 최신값만 저장되며, 댓글형 `이번 주 메모`와 별도로 관리됩니다.
-- 통계는 최근 4주 출석자와 최근 4개월 큐티 완료자·생일자를 막대그래프로 보여주고, 2026년 7월~2027년 6월 전체 추이를 라인그래프로 제공합니다. 최근 막대별 아바타/목록 상세와 모든 선생님 메모 통합 목록도 확인할 수 있습니다.
+- 통계는 최근 4주 출석자와 현재 월의 이전 1개월부터 이후 2개월까지의 활동 완료자를 막대그래프로 보여줍니다. 초등부는 같은 4개월 생일자를 표시하고, AWANA는 생일 카드를 숨깁니다. 2026년 7월~2027년 6월 전체 추이와 최근 막대별 상세, 선생님 통합 메모도 제공합니다.
 - 현재는 로그인 없는 기본 조직 1개 공개 쓰기 방식이며, 공개 운영 전에는 Supabase Auth 또는 공유 코드 기반 권한을 별도 설계해야 합니다.
 
 ## 개발 명령
@@ -44,4 +45,4 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-원격 프로젝트에는 `supabase/migrations`의 migration을 파일명 순서대로 모두 적용해야 합니다. 아이별 날짜 메모를 사용하려면 최신 `20260719000100_attendance_record_notes.sql`까지 적용되어야 합니다. 현재 구현은 로그인 없는 패밀리 오픈을 위해 기본 조직 1개에 대해 publishable key 공개 읽기/쓰기를 허용합니다.
+원격 프로젝트에는 `supabase/migrations`의 migration을 파일명 순서대로 모두 적용해야 합니다. 그룹 분리를 사용하려면 최신 `20260831000100_ministry_groups.sql`까지 적용되어야 합니다. 현재 구현은 로그인 없는 패밀리 오픈을 위해 기본 조직 1개에 대해 publishable key 공개 읽기/쓰기를 허용하며, DB 복합 외래키가 서로 다른 그룹 row 연결을 거부합니다.

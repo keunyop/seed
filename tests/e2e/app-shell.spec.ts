@@ -79,7 +79,9 @@ async function expectNoAppStateLocalStorage(page: import("@playwright/test").Pag
 }
 
 async function expectTeacherLoginCached(page: import("@playwright/test").Page) {
-  const cachedTeacherId = await page.evaluate(() => window.localStorage.getItem("seed-current-teacher-v1"));
+  const cachedTeacherId = await page.evaluate(() =>
+    window.localStorage.getItem('seed-current-teacher-v1:elementary'),
+  );
   expect(cachedTeacherId).toBeTruthy();
 }
 

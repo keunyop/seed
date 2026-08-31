@@ -7,6 +7,7 @@ import {
   canCreateSecretAttendanceMemo,
   canViewAttendanceMemo,
   getAllAttendanceMemosLatestFirst,
+  getAllAttendanceOverview,
   getActiveChildrenWithoutBirthday,
   getAttendanceMemosForView,
   getAttendanceRosterChildren,
@@ -31,6 +32,7 @@ import {
   sortTeachersByName,
 } from "@/lib/family/stats";
 import { normalizeFamilyOpenStore } from "@/lib/family/store-persistence";
+import { getCurrentMonthWindowStart } from '@/lib/family/report-period';
 
 describe("family open stats", () => {
   it("keeps the runtime empty store free of sample data", () => {
@@ -225,6 +227,37 @@ describe("family open stats", () => {
       [0, 0, 0],
       [0, 0, 0],
     ]);
+  });
+
+  it('builds an all-date attendance overview newest first for AWANA', () => {
+    const store = createDefaultFamilyOpenStore();
+    store.attendanceByDate = {
+      '2026-07-05': {
+        sessionDate: '2026-07-05',
+        note: '',
+        savedAt: '2026-07-05T20:00:00.000Z',
+        records: { 'child-harin': { status: 'present', qtCompleted: false } },
+      },
+      '2026-08-16': {
+        sessionDate: '2026-08-16',
+        note: '',
+        savedAt: '2026-08-16T20:00:00.000Z',
+        records: { 'child-harin': { status: 'present', qtCompleted: true } },
+      },
+    };
+
+    const overview = getAllAttendanceOverview(store, 'class-kindergarten');
+
+    expect(overview.dates.map((item) => item.sessionDate)).toEqual(['2026-08-16', '2026-07-05']);
+    expect(overview.children.find((item) => item.child.id === 'child-harin')).toMatchObject({
+      presentCount: 2,
+      qtCount: 1,
+    });
+  });
+
+  it('starts the four-month report window one month before the current month', () => {
+    expect(getCurrentMonthWindowStart('2026-08-31')).toEqual({ year: 2026, month: 7 });
+    expect(getCurrentMonthWindowStart('2026-01-15')).toEqual({ year: 2025, month: 12 });
   });
 
   it("builds twelve qt buckets with unique participants, per-child completions, totals, and empty months", () => {

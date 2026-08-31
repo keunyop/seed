@@ -20,6 +20,8 @@ import {
   getWeeklyAttendanceBuckets,
 } from "@/lib/family/stats";
 import type { AttendanceMemo } from "@/lib/family/types";
+import { getActivityLabel } from '@/lib/family/ministry-group';
+import { getCurrentMonthWindowStart } from '@/lib/family/report-period';
 
 type ActiveReport =
   | { type: "attendance"; key: string }
@@ -40,13 +42,6 @@ function getLocalIsoDate() {
   const date = new Date();
   const offset = date.getTimezoneOffset() * 60_000;
   return new Date(date.getTime() - offset).toISOString().slice(0, 10);
-}
-
-function getRecentMonthStart(referenceDate: string) {
-  const year = Number(referenceDate.slice(0, 4));
-  const month = Number(referenceDate.slice(5, 7));
-  const start = new Date(Date.UTC(year, month - RECENT_POINT_COUNT, 1));
-  return { year: start.getUTCFullYear(), month: start.getUTCMonth() + 1 };
 }
 
 function formatShortMonthDay(isoDate: string) {
@@ -79,10 +74,12 @@ export function ReportsClient() {
     store,
     isReady,
     saveState,
+    ministryGroup,
     updateChild,
     saveChildPhoto,
     setAttendanceMemoAcknowledged,
   } = useFamilyOpenStore();
+  const activityLabel = getActivityLabel(ministryGroup);
   const { currentTeacherId, isAdmin } = useTeacherAuth();
   const [referenceDate] = useState(getLocalIsoDate);
   const [activeReport, setActiveReport] = useState<ActiveReport | null>(null);
@@ -90,7 +87,7 @@ export function ReportsClient() {
   const [memoPage, setMemoPage] = useState(1);
   const [pendingMemoIds, setPendingMemoIds] = useState<Set<string>>(() => new Set());
   const [memoError, setMemoError] = useState("");
-  const recentMonthStart = useMemo(() => getRecentMonthStart(referenceDate), [referenceDate]);
+  const recentMonthStart = useMemo(() => getCurrentMonthWindowStart(referenceDate), [referenceDate]);
   const hasStoreData =
     store.teachers.length > 0 ||
     store.classes.length > 0 ||
@@ -196,7 +193,7 @@ export function ReportsClient() {
         return null;
       }
 
-      const title = `${bucket.year}년 ${bucket.month}월 큐티 완료자`;
+      const title = `${bucket.year}년 ${bucket.month}월 ${activityLabel} 완료자`;
       const items = bucket.participants.map((item) => ({
         id: item.child.id,
         child: item.child,
@@ -206,7 +203,7 @@ export function ReportsClient() {
       return {
         title,
         summary: `${bucket.participantCount}명`,
-        emptyMessage: "이 달에는 큐티를 3회 이상 완료한 아이가 없습니다.",
+        emptyMessage: `이 달에는 ${activityLabel}을 3회 이상 완료한 아이가 없습니다.`,
         items,
         copyText: [title, ...items.map((item) => `${item.child.name} - ${item.meta}`)].join("\n"),
         initialViewMode: "grid" as const,
@@ -253,7 +250,7 @@ export function ReportsClient() {
       copyText: [title, ...items.map((item) => `${item.child.name} - ${item.meta}`)].join("\n"),
       initialViewMode: "grid" as const,
     };
-  }, [activeReport, childrenWithoutBirthday, recentBirthdayBuckets, recentQtBuckets, recentWeeklyBuckets, store.classes]);
+  }, [activeReport, activityLabel, childrenWithoutBirthday, recentBirthdayBuckets, recentQtBuckets, recentWeeklyBuckets, store.classes]);
 
   const recentWeeklyChartData = recentWeeklyBuckets.map((bucket) => ({
     key: bucket.sessionDate,
@@ -271,13 +268,13 @@ export function ReportsClient() {
     key: `${bucket.year}-${String(bucket.month).padStart(2, "0")}`,
     label: `${bucket.month}월`,
     value: bucket.participantCount,
-    ariaLabel: `${bucket.year}년 ${bucket.month}월 큐티 완료자 ${bucket.participantCount}명, 상세 보기`,
+    ariaLabel: `${bucket.year}년 ${bucket.month}월 ${activityLabel} 완료자 ${bucket.participantCount}명, 상세 보기`,
   }));
   const fullQtChartData = fullQtBuckets.map((bucket) => ({
     key: `${bucket.year}-${String(bucket.month).padStart(2, "0")}`,
     label: `${String(bucket.year).slice(2)}.${bucket.month}`,
     value: bucket.participantCount,
-    ariaLabel: `${bucket.year}년 ${bucket.month}월 큐티 완료자 ${bucket.participantCount}명`,
+    ariaLabel: `${bucket.year}년 ${bucket.month}월 ${activityLabel} 완료자 ${bucket.participantCount}명`,
   }));
   const recentBirthdayChartData = recentBirthdayBuckets.map((bucket) => ({
     key: `${bucket.year}-${String(bucket.month).padStart(2, "0")}`,
@@ -364,9 +361,10 @@ export function ReportsClient() {
                 columns="months"
                 onSelect={(key) => setActiveReport({ type: "qt", key })}
                 recentData={recentQtChartData}
-                title="월별 큐티 완료자"
+                title={`월별 ${activityLabel} 완료자`}
                 tone="qt"
               />
+              {ministryGroup === 'elementary' ? (
               <ReportChartCard
                 allData={fullBirthdayChartData}
                 columns="months"
@@ -384,6 +382,7 @@ export function ReportsClient() {
                 title="월별 생일자"
                 tone="birthday"
               />
+              ) : null}
             </div>
 
             <section className="mt-4 rounded-[12px] border-2 border-cloud-gray p-4 sm:p-6" aria-labelledby="integrated-memos-title">

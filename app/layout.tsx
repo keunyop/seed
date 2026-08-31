@@ -3,6 +3,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Toaster } from "sonner";
 import { FamilyOpenStoreProvider } from "@/components/domain/use-family-open-store";
 import { TeacherAuthProvider } from "@/components/domain/teacher-auth-provider";
+import { AppBrandHeader } from '@/components/layout/app-brand-header';
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -25,7 +26,10 @@ export default function RootLayout({
     <html lang="ko">
       <body>
         <FamilyOpenStoreProvider>
-          <TeacherAuthProvider>{children}</TeacherAuthProvider>
+          <TeacherAuthProvider>
+            <AppBrandHeader />
+            {children}
+          </TeacherAuthProvider>
         </FamilyOpenStoreProvider>
         <SpeedInsights />
         <Toaster richColors position="top-center" />

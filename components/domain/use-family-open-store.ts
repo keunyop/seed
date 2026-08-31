@@ -1,8 +1,14 @@
 "use client";
 
-import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { createEmptyFamilyOpenStore } from "@/lib/family/default-store";
+import {
+  DEFAULT_MINISTRY_GROUP,
+  MINISTRY_GROUP_STORAGE_KEY,
+  isMinistryGroup,
+  type MinistryGroup,
+} from '@/lib/family/ministry-group';
 import { isValidBirthMonthDay, parseBirthDateParts } from "@/lib/family/stats";
 import { LEGACY_LOCAL_STORE_KEY } from "@/lib/family/store-persistence";
 import {
@@ -30,6 +36,9 @@ import type {
 
 type SaveState = "idle" | "loading" | "saved" | "error";
 type SaveResult = { ok: boolean; message: string };
+
+const MINISTRY_GROUP_CHANGE_EVENT = 'seed-ministry-group-change';
+let sessionMinistryGroup: MinistryGroup = DEFAULT_MINISTRY_GROUP;
 
 type ParentInput = {
   id?: string;
@@ -156,6 +165,42 @@ function removeLegacyLocalStore() {
   }
 }
 
+function readStoredMinistryGroup(): MinistryGroup {
+  if (typeof window === 'undefined') {
+    return DEFAULT_MINISTRY_GROUP;
+  }
+
+  try {
+    const storedValue = window.localStorage.getItem(MINISTRY_GROUP_STORAGE_KEY);
+    return isMinistryGroup(storedValue) ? storedValue : sessionMinistryGroup;
+  } catch {
+    return sessionMinistryGroup;
+  }
+}
+
+function subscribeMinistryGroup(callback: () => void) {
+  if (typeof window === 'undefined') {
+    return () => {};
+  }
+
+  window.addEventListener('storage', callback);
+  window.addEventListener(MINISTRY_GROUP_CHANGE_EVENT, callback);
+  return () => {
+    window.removeEventListener('storage', callback);
+    window.removeEventListener(MINISTRY_GROUP_CHANGE_EVENT, callback);
+  };
+}
+
+function writeStoredMinistryGroup(ministryGroup: MinistryGroup) {
+  sessionMinistryGroup = ministryGroup;
+  try {
+    window.localStorage.setItem(MINISTRY_GROUP_STORAGE_KEY, ministryGroup);
+  } catch {
+    // The selection still works for this tab when storage is unavailable.
+  }
+  window.dispatchEvent(new Event(MINISTRY_GROUP_CHANGE_EVENT));
+}
+
 function cloneAttendanceRecords(records: AttendanceSession["records"]) {
   return Object.fromEntries(
     Object.entries(records).map(([childId, record]) => [
@@ -169,17 +214,44 @@ function useFamilyOpenStoreState() {
   const [store, setStore] = useState<FamilyOpenStore>(() => createEmptyFamilyOpenStore());
   const [saveState, setSaveState] = useState<SaveState>("loading");
   const [isReady, setIsReady] = useState(false);
+  const ministryGroup = useSyncExternalStore(
+    subscribeMinistryGroup,
+    readStoredMinistryGroup,
+    () => DEFAULT_MINISTRY_GROUP,
+  );
   const saveRequestIdRef = useRef(0);
+  const activeMinistryGroupRef = useRef<MinistryGroup>(ministryGroup);
+
+  const setMinistryGroup = useCallback(
+    (nextGroup: MinistryGroup) => {
+      if (nextGroup === ministryGroup) {
+        return;
+      }
+
+      activeMinistryGroupRef.current = nextGroup;
+      saveRequestIdRef.current += 1;
+      setStore(createEmptyFamilyOpenStore());
+      setSaveState('loading');
+      setIsReady(false);
+
+      writeStoredMinistryGroup(nextGroup);
+    },
+    [ministryGroup],
+  );
 
   useEffect(() => {
     let isCancelled = false;
+    const loadingGroup = ministryGroup;
+    activeMinistryGroupRef.current = loadingGroup;
 
     async function loadStore() {
       removeLegacyLocalStore();
+      setStore(createEmptyFamilyOpenStore());
       setSaveState("loading");
+      setIsReady(false);
 
-      const result = await loadFamilyOpenStoreFromSupabase();
-      if (isCancelled) {
+      const result = await loadFamilyOpenStoreFromSupabase(loadingGroup);
+      if (isCancelled || activeMinistryGroupRef.current !== loadingGroup) {
         return;
       }
 
@@ -193,9 +265,10 @@ function useFamilyOpenStoreState() {
     return () => {
       isCancelled = true;
     };
-  }, []);
+  }, [ministryGroup]);
 
   const runRemoteSave = useCallback(async (operation: () => Promise<SaveResult>) => {
+    const operationGroup = activeMinistryGroupRef.current;
     const requestId = saveRequestIdRef.current + 1;
     saveRequestIdRef.current = requestId;
     setSaveState("loading");
@@ -207,7 +280,7 @@ function useFamilyOpenStoreState() {
       result = { ok: false, message: "네트워크 연결을 확인한 뒤 다시 저장해 주세요." };
     }
 
-    if (saveRequestIdRef.current === requestId) {
+    if (saveRequestIdRef.current === requestId && activeMinistryGroupRef.current === operationGroup) {
       setSaveState(result.ok ? "saved" : "error");
     }
 
@@ -216,9 +289,9 @@ function useFamilyOpenStoreState() {
 
   const saveStore = useCallback(
     (nextStore: FamilyOpenStore) => {
-      void runRemoteSave(() => saveFamilyOpenStoreToSupabase(nextStore));
+      void runRemoteSave(() => saveFamilyOpenStoreToSupabase(nextStore, ministryGroup));
     },
-    [runRemoteSave],
+    [ministryGroup, runRemoteSave],
   );
 
   const persist = useCallback(
@@ -598,8 +671,8 @@ function useFamilyOpenStoreState() {
         return { ok: false, message: "사진 형식이나 크기를 확인한 뒤 다시 선택해 주세요." };
       }
 
-      const result = await runRemoteSave(() => saveChildPhotoToSupabase(childId, photoDataUrl));
-      if (!result.ok) {
+      const result = await runRemoteSave(() => saveChildPhotoToSupabase(childId, photoDataUrl, ministryGroup));
+      if (!result.ok || activeMinistryGroupRef.current !== ministryGroup) {
         return result;
       }
 
@@ -612,7 +685,7 @@ function useFamilyOpenStoreState() {
 
       return result;
     },
-    [runRemoteSave, store.children],
+    [ministryGroup, runRemoteSave, store.children],
   );
 
   const setAttendanceRecord = useCallback(
@@ -713,10 +786,10 @@ function useFamilyOpenStoreState() {
         qtCompleted: record.qtCompleted,
       };
       const result = await runRemoteSave(() =>
-        saveAttendanceRecordToSupabase(sessionDate, childId, nextRecord, savedAt),
+        saveAttendanceRecordToSupabase(sessionDate, childId, nextRecord, savedAt, ministryGroup),
       );
 
-      if (!result.ok) {
+      if (!result.ok || activeMinistryGroupRef.current !== ministryGroup) {
         return result;
       }
 
@@ -747,7 +820,7 @@ function useFamilyOpenStoreState() {
 
       return result;
     },
-    [runRemoteSave],
+    [ministryGroup, runRemoteSave],
   );
 
   const saveAttendanceRecordNote = useCallback(
@@ -763,10 +836,10 @@ function useFamilyOpenStoreState() {
 
       const savedAt = new Date().toISOString();
       const result = await runRemoteSave(() =>
-        saveAttendanceRecordNoteToSupabase(sessionDate, childId, note, savedAt),
+        saveAttendanceRecordNoteToSupabase(sessionDate, childId, note, savedAt, ministryGroup),
       );
 
-      if (!result.ok) {
+      if (!result.ok || activeMinistryGroupRef.current !== ministryGroup) {
         return result;
       }
 
@@ -798,7 +871,7 @@ function useFamilyOpenStoreState() {
 
       return result;
     },
-    [runRemoteSave, store.children],
+    [ministryGroup, runRemoteSave, store.children],
   );
 
   const saveAttendanceMemo = useCallback(
@@ -826,9 +899,9 @@ function useFamilyOpenStoreState() {
         isSecret: input.isSecret,
         savedAt,
       };
-      const result = await runRemoteSave(() => saveAttendanceMemoToSupabase(nextMemo));
+      const result = await runRemoteSave(() => saveAttendanceMemoToSupabase(nextMemo, ministryGroup));
 
-      if (!result.ok) {
+      if (!result.ok || activeMinistryGroupRef.current !== ministryGroup) {
         return result;
       }
 
@@ -839,7 +912,7 @@ function useFamilyOpenStoreState() {
 
       return result;
     },
-    [runRemoteSave, store.classes, store.teachers],
+    [ministryGroup, runRemoteSave, store.classes, store.teachers],
   );
 
   const setAttendanceMemoAcknowledged = useCallback(
@@ -863,10 +936,11 @@ function useFamilyOpenStoreState() {
           memoId,
           acknowledgedAt,
           acknowledgedByTeacherId,
+          ministryGroup,
         ),
       );
 
-      if (!result.ok) {
+      if (!result.ok || activeMinistryGroupRef.current !== ministryGroup) {
         return result;
       }
 
@@ -881,7 +955,7 @@ function useFamilyOpenStoreState() {
 
       return result;
     },
-    [runRemoteSave, store.attendanceMemos, store.teachers],
+    [ministryGroup, runRemoteSave, store.attendanceMemos, store.teachers],
   );
 
   const saveAttendanceSession = useCallback(
@@ -898,9 +972,9 @@ function useFamilyOpenStoreState() {
         shareWithPastor,
         savedAt: new Date().toISOString(),
       };
-      const result = await runRemoteSave(() => saveAttendanceSessionToSupabase(nextSession));
+      const result = await runRemoteSave(() => saveAttendanceSessionToSupabase(nextSession, ministryGroup));
 
-      if (!result.ok) {
+      if (!result.ok || activeMinistryGroupRef.current !== ministryGroup) {
         return result;
       }
 
@@ -926,7 +1000,7 @@ function useFamilyOpenStoreState() {
 
       return result;
     },
-    [runRemoteSave],
+    [ministryGroup, runRemoteSave],
   );
 
   return useMemo(
@@ -934,6 +1008,8 @@ function useFamilyOpenStoreState() {
       store,
       saveState,
       isReady,
+      ministryGroup,
+      setMinistryGroup,
       addChild,
       addClass,
       addTeacher,
@@ -961,12 +1037,14 @@ function useFamilyOpenStoreState() {
       deleteClass,
       deleteTeacher,
       isReady,
+      ministryGroup,
       saveAttendanceMemo,
       saveAttendanceRecord,
       saveAttendanceRecordNote,
       setAttendanceMemoAcknowledged,
       saveAttendanceSession,
       saveState,
+      setMinistryGroup,
       setAllAttendance,
       setAttendanceRecord,
       setSessionNote,

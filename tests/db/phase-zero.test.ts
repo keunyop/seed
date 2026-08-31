@@ -15,6 +15,7 @@ describe("Supabase family open database", () => {
     expect(migrations).toContain("20260702000100_teacher_auth_and_attendance_memos.sql");
     expect(migrations).toContain("20260712000100_attendance_memo_acknowledgements.sql");
     expect(migrations).toContain("20260719000100_attendance_record_notes.sql");
+    expect(migrations).toContain('20260831000100_ministry_groups.sql');
 
     const legacyMigration = readFileSync(
       join(process.cwd(), "supabase", "migrations", "20260626000100_family_open_app_state.sql"),
@@ -71,5 +72,18 @@ describe("Supabase family open database", () => {
     );
     expect(attendanceRecordNotesMigration).toContain("add column if not exists note text not null default ''");
     expect(attendanceRecordNotesMigration).toContain("check (char_length(note) <= 100)");
+
+    const ministryGroupsMigration = readFileSync(
+      join(process.cwd(), 'supabase', 'migrations', '20260831000100_ministry_groups.sql'),
+      'utf8',
+    );
+    expect(ministryGroupsMigration.match(/add column if not exists ministry_group/g)).toHaveLength(7);
+    expect(ministryGroupsMigration).toContain("default 'elementary'");
+    expect(ministryGroupsMigration).toContain("ministry_group in ('elementary', 'awana')");
+    expect(ministryGroupsMigration).toContain(
+      'on public.attendance_sessions(organization_id, ministry_group, session_date)',
+    );
+    expect(ministryGroupsMigration).toContain('attendance_records_child_same_group_fkey');
+    expect(ministryGroupsMigration).toContain('elementary QT or AWANA memorization');
   });
 });

@@ -296,6 +296,10 @@ test("reports show accessible bar details, avatar/list views, and integrated mem
   await expect(weeklyChart.getByRole("button")).toHaveCount(4);
   await expect(qtChart.getByRole("button")).toHaveCount(4);
   await expect(birthdayChart.getByRole("button")).toHaveCount(4);
+  for (const month of [6, 7, 8, 9]) {
+    await expect(qtChart.getByRole('button', { name: new RegExp(`2026년 ${month}월 큐티 완료자`) })).toBeVisible();
+    await expect(birthdayChart.getByRole('button', { name: new RegExp(`2026년 ${month}월 생일자`) })).toBeVisible();
+  }
 
   const attendanceCard = page.getByRole("heading", { name: "주별 출석자" }).locator("..").locator("..");
   await attendanceCard.getByRole("button", { name: "전체", exact: true }).click();
@@ -370,7 +374,7 @@ test("reports show accessible bar details, avatar/list views, and integrated mem
   await memos.getByRole("button", { name: "다음" }).click();
   await expect(memos.getByText("가장 오래된 메모")).toBeVisible();
 
-  await page.evaluate(() => window.localStorage.setItem("seed-current-teacher-v1", "teacher-admin"));
+  await page.evaluate(() => window.localStorage.setItem('seed-current-teacher-v1:elementary', 'teacher-admin'));
   await page.reload();
   const adminMemos = page.getByRole("region", { name: "선생님 통합 메모" });
   await expect(adminMemos.getByText("관리자만 볼 비밀 내용")).toBeVisible();
@@ -382,6 +386,12 @@ test("reports show accessible bar details, avatar/list views, and integrated mem
   expect(memoPatches).toHaveLength(1);
   expect(memoPatches[0]).toMatchObject({ acknowledged_by_teacher_id: "teacher-admin" });
   expect(typeof memoPatches[0].acknowledged_at).toBe("string");
+
+  await page.getByRole('button', { name: 'AWANA' }).click();
+  await expect(page.getByRole('heading', { name: '선생님 로그인' })).toBeVisible();
+  await page.getByRole('button', { name: '로그인' }).click();
+  await expect(page.getByRole('heading', { name: '월별 암송 완료자' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '월별 생일자' })).toHaveCount(0);
 
   const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   expect(hasHorizontalOverflow).toBe(false);
