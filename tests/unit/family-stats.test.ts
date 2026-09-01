@@ -200,7 +200,7 @@ describe("family open stats", () => {
     expect(() => getWeeklyAttendanceBuckets(store, "2026-07-04", 3, 5)).toThrow("must be a Friday");
   });
 
-  it("fills one diamond quarter per distinct present date and caps four diamonds at 16 attendances", () => {
+  it("fills one diamond quarter per distinct present date and caps three diamonds at 12 attendances", () => {
     const store = createDefaultFamilyOpenStore();
     store.attendanceByDate = Object.fromEntries(
       ["2026-07-03", "2026-07-10", "2026-07-17", "2026-07-24", "2026-07-31"].map((sessionDate) => [
@@ -231,7 +231,7 @@ describe("family open stats", () => {
     ).toBe(2);
 
     store.attendanceByDate = Object.fromEntries(
-      Array.from({ length: 17 }, (_, index) => {
+      Array.from({ length: 13 }, (_, index) => {
         const sessionDate = `2026-08-${String(index + 1).padStart(2, "0")}`;
         return [
           sessionDate,
@@ -244,7 +244,7 @@ describe("family open stats", () => {
         ];
       }),
     );
-    expect(getAttendanceDiamondProgress(store, "child-harin")).toBe(16);
+    expect(getAttendanceDiamondProgress(store, "child-harin")).toBe(12);
   });
 
   it("builds a mobile monthly overview from every Sunday for the currently selected class", () => {

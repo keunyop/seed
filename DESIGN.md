@@ -105,9 +105,14 @@ Large, organic vector illustrations featuring diverse, playful characters. Built
 Text is colored 'Sky Blue' ('#1cb0f6') and often includes a subtle underline on hover. It uses the standard 'din-round' body font.
 
 ### AWANA Attendance Diamonds
-**Role:** Four-step attendance reward progress beside each AWANA child name.
+**Role:** Three-diamond attendance reward progress beside each AWANA child name.
 
-Show exactly four compact diamond outlines in one non-wrapping row. Empty diamonds use 'Silver' (`#afafaf`) on white. Each recorded attendance fills one quarter of the next diamond with 'Sky Blue' (`#1cb0f6`), so four attendances complete one diamond and all four diamonds represent 16 attendances. Keep the group beside the child name without shrinking the attendance controls, and expose the attendance count, completed diamonds, and current quarter as accessible text rather than relying on color alone.
+Show exactly three 20px diamond outlines in one non-wrapping row. Empty diamonds use 'Silver' (`#afafaf`) on white. Each recorded attendance fills one quarter of the next diamond with 'Sky Blue' (`#1cb0f6`), so four attendances complete one diamond and all three diamonds represent 12 attendances. Keep the group beside the child name without shrinking the attendance controls, and expose the attendance count, completed diamonds, and current quarter as accessible text rather than relying on color alone.
+
+### Teacher Login Group Selector
+**Role:** Choose the ministry group before choosing the active teacher for the first login.
+
+Place the two-option `초등부`/`AWANA` segmented selector above the teacher field. Each option has a minimum 44px touch target, the selected option uses a white surface with 'Seed Green' emphasis, and changing the option keeps the modal visible while the selected group's teacher list loads or is empty.
 
 ### Language Flag Item
 **Role:** Used in the language selector list.

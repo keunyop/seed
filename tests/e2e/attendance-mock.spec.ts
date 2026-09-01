@@ -33,11 +33,12 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
 
     if (method === "GET") {
       if (table === "teachers") {
+        const isAwanaRequest = url.searchParams.get("ministry_group") === "eq.awana";
         return json([
           {
-            id: "teacher-ios",
+            id: isAwanaRequest ? "teacher-awana" : "teacher-ios",
             organization_id: ORGANIZATION_ID,
-            name: "아이폰 선생님",
+            name: isAwanaRequest ? "어와나 선생님" : "아이폰 선생님",
             photo_data_url: null,
             birth_date: null,
             birth_month: 1,
@@ -53,12 +54,13 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
       }
 
       if (table === "classes") {
+        const isAwanaRequest = url.searchParams.get("ministry_group") === "eq.awana";
         return json([
           {
             id: "class-ios",
             organization_id: ORGANIZATION_ID,
             name: "아이폰반",
-            teacher_id: "teacher-ios",
+            teacher_id: isAwanaRequest ? "teacher-awana" : "teacher-ios",
             sort_order: 0,
             created_at: "2026-06-28T00:00:00.000Z",
             updated_at: "2026-06-28T00:00:00.000Z",
@@ -164,9 +166,20 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/attendance");
-  await expect(page.getByRole("heading", { name: "선생님 로그인" })).toBeVisible();
-  await expect(page.getByLabel("비밀번호")).toBeDisabled();
-  await page.getByRole("button", { name: "로그인" }).click();
+  let loginDialog = page.getByRole("dialog", { name: "선생님 로그인" });
+  await expect(loginDialog).toBeVisible();
+  const loginGroupSelector = loginDialog.getByRole("group", { name: "로그인 부서 선택" });
+  await expect(loginGroupSelector.getByRole("button", { name: "초등부" })).toHaveAttribute("aria-pressed", "true");
+  await loginGroupSelector.getByRole("button", { name: "AWANA" }).click();
+  loginDialog = page.getByRole("dialog", { name: "선생님 로그인" });
+  await expect(loginDialog).toBeVisible();
+  await expect(loginDialog.getByRole("button", { name: "AWANA" })).toHaveAttribute("aria-pressed", "true");
+  await expect(loginDialog.getByRole("option", { name: "어와나 선생님" })).toHaveCount(1);
+  await loginDialog.getByRole("button", { name: "초등부" }).click();
+  loginDialog = page.getByRole("dialog", { name: "선생님 로그인" });
+  await expect(loginDialog.getByRole("option", { name: "아이폰 선생님" })).toHaveCount(1);
+  await expect(loginDialog.getByLabel("비밀번호")).toBeDisabled();
+  await loginDialog.getByRole("button", { name: "로그인" }).click();
   await expect(page.getByRole("heading", { name: "출석 체크" })).toBeVisible();
 
   const classSelect = page.getByRole("combobox", { name: "반", exact: true });

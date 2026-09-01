@@ -12,7 +12,10 @@ describe("AttendanceDiamondProgress", () => {
   it("fills one quarter of the next diamond for each attendance", () => {
     const { rerender } = render(<AttendanceDiamondProgress childName="테스트" progress={3} />);
 
-    expect(screen.getByRole("img", { name: "테스트 출석 3회, 다이아몬드 0개 완성, 다음 다이아몬드 3/4" })).toBeVisible();
+    const progress = screen.getByRole("img", { name: "테스트 출석 3회, 다이아몬드 0개 완성, 다음 다이아몬드 3/4" });
+    expect(progress).toBeVisible();
+    expect(progress.children).toHaveLength(3);
+    expect(progress.firstElementChild).toHaveClass("h-5", "w-5");
     expect(getFillWidths()).toEqual(["75%"]);
 
     rerender(<AttendanceDiamondProgress childName="테스트" progress={5} />);
@@ -20,10 +23,10 @@ describe("AttendanceDiamondProgress", () => {
     expect(getFillWidths()).toEqual(["100%", "25%"]);
   });
 
-  it("caps progress at four completed diamonds", () => {
+  it("caps progress at three completed diamonds", () => {
     render(<AttendanceDiamondProgress childName="테스트" progress={17} />);
 
-    expect(screen.getByRole("img", { name: "테스트 출석 16회, 다이아몬드 4개 완성" })).toBeVisible();
-    expect(getFillWidths()).toEqual(["100%", "100%", "100%", "100%"]);
+    expect(screen.getByRole("img", { name: "테스트 출석 12회, 다이아몬드 3개 완성" })).toBeVisible();
+    expect(getFillWidths()).toEqual(["100%", "100%", "100%"]);
   });
 });

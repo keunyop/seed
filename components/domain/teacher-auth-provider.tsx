@@ -7,7 +7,7 @@ import { useFamilyOpenStore } from "@/components/domain/use-family-open-store";
 import { PressableButton } from "@/components/ui/pressable-button";
 import { sortTeachersByName } from "@/lib/family/stats";
 import type { FamilyTeacher } from "@/lib/family/types";
-import type { MinistryGroup } from '@/lib/family/ministry-group';
+import { MINISTRY_GROUPS, getMinistryGroupLabel, type MinistryGroup } from '@/lib/family/ministry-group';
 
 const TEACHER_AUTH_STORAGE_KEY = "seed-current-teacher-v1";
 
@@ -97,11 +97,15 @@ function getEffectiveAdminState(teacher: FamilyTeacher | undefined, activeTeache
 function TeacherLoginModal({
   activeTeachers,
   isReady,
+  ministryGroup,
   onLogin,
+  onMinistryGroupChange,
 }: {
   activeTeachers: FamilyTeacher[];
   isReady: boolean;
+  ministryGroup: MinistryGroup;
   onLogin: (teacherId: string) => { ok: boolean; message: string };
+  onMinistryGroupChange: (group: MinistryGroup) => void;
 }) {
   const [teacherId, setTeacherId] = useState(activeTeachers[0]?.id ?? "");
   const [error, setError] = useState("");
@@ -140,7 +144,37 @@ function TeacherLoginModal({
             <h2 className="font-heading-ko text-2xl font-bold text-almost-black" id="teacher-login-title">
               선생님 로그인
             </h2>
+            <p className="mt-1 text-sm font-bold text-graphite">부서와 선생님을 선택해 주세요.</p>
           </div>
+        </div>
+
+        <div
+          aria-label="로그인 부서 선택"
+          className="mt-5 grid grid-cols-2 rounded-[12px] bg-cloud-gray p-1"
+          role="group"
+        >
+          {MINISTRY_GROUPS.map((group) => {
+            const isSelected = ministryGroup === group;
+
+            return (
+              <button
+                aria-pressed={isSelected}
+                className={`min-h-11 rounded-[9px] px-3 text-sm font-extrabold transition-colors ${
+                  isSelected
+                    ? "bg-white text-duo-green-dark shadow-sm"
+                    : "text-graphite hover:text-almost-black"
+                }`}
+                key={group}
+                onClick={() => {
+                  setError("");
+                  onMinistryGroupChange(group);
+                }}
+                type="button"
+              >
+                {getMinistryGroupLabel(group)}
+              </button>
+            );
+          })}
         </div>
 
         {!isReady ? (
@@ -202,13 +236,14 @@ function TeacherLoginModal({
 }
 
 export function TeacherAuthProvider({ children }: { children: ReactNode }) {
-  const { store, isReady, ministryGroup } = useFamilyOpenStore();
+  const { store, isReady, ministryGroup, setMinistryGroup } = useFamilyOpenStore();
   const readCurrentGroupTeacherId = useCallback(
     () => readCachedTeacherId(ministryGroup),
     [ministryGroup],
   );
   const storedTeacherId = useSyncExternalStore(subscribeTeacherAuth, readCurrentGroupTeacherId, () => "");
   const [sessionTeacher, setSessionTeacher] = useState<{ ministryGroup: MinistryGroup; teacherId: string } | null>(null);
+  const [loginFlowGroup, setLoginFlowGroup] = useState<MinistryGroup | null>(null);
   const sessionTeacherId = sessionTeacher?.ministryGroup === ministryGroup ? sessionTeacher.teacherId : '';
   const cachedTeacherId = sessionTeacherId || storedTeacherId;
   const activeTeachersByStoreOrder = useMemo(
@@ -221,6 +256,7 @@ export function TeacherAuthProvider({ children }: { children: ReactNode }) {
   const hasTeachers = activeTeachersByStoreOrder.length > 0;
   const isAuthenticated = !hasTeachers || !!currentTeacher;
   const shouldBlock = isReady && hasTeachers && !currentTeacher;
+  const shouldShowLogin = shouldBlock || loginFlowGroup === ministryGroup;
 
   const value = useMemo<TeacherAuthContextValue>(
     () => ({
@@ -243,16 +279,28 @@ export function TeacherAuthProvider({ children }: { children: ReactNode }) {
 
     writeCachedTeacherId(ministryGroup, teacherId);
     setSessionTeacher({ ministryGroup, teacherId });
+    setLoginFlowGroup(null);
     return { ok: true, message: "" };
+  }
+
+  function handleLoginMinistryGroupChange(group: MinistryGroup) {
+    setLoginFlowGroup(group);
+    setMinistryGroup(group);
   }
 
   return (
     <TeacherAuthContext.Provider value={value}>
-      <div aria-hidden={shouldBlock} className={shouldBlock ? "pointer-events-none select-none blur-[1px]" : undefined}>
+      <div aria-hidden={shouldShowLogin} className={shouldShowLogin ? "pointer-events-none select-none blur-[1px]" : undefined}>
         {children}
       </div>
-      {shouldBlock ? (
-        <TeacherLoginModal activeTeachers={activeTeachers} isReady={isReady} onLogin={handleLogin} />
+      {shouldShowLogin ? (
+        <TeacherLoginModal
+          activeTeachers={activeTeachers}
+          isReady={isReady}
+          ministryGroup={ministryGroup}
+          onLogin={handleLogin}
+          onMinistryGroupChange={handleLoginMinistryGroupChange}
+        />
       ) : null}
     </TeacherAuthContext.Provider>
   );

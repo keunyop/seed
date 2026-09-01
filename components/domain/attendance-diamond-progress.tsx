@@ -22,7 +22,7 @@ export function AttendanceDiamondProgress({ childName, progress }: AttendanceDia
   return (
     <span
       aria-label={progressLabel}
-      className="inline-flex shrink-0 items-center gap-0.5"
+      className="inline-flex shrink-0 items-center gap-1"
       role="img"
     >
       {Array.from({ length: ATTENDANCE_DIAMOND_COUNT }, (_, index) => {
@@ -32,14 +32,14 @@ export function AttendanceDiamondProgress({ childName, progress }: AttendanceDia
         );
 
         return (
-          <span aria-hidden="true" className="relative h-3.5 w-3.5 shrink-0" key={index}>
-            <Diamond className="absolute inset-0 h-3.5 w-3.5 fill-white stroke-[2.5] text-silver" />
+          <span aria-hidden="true" className="relative h-5 w-5 shrink-0" key={index}>
+            <Diamond className="absolute inset-0 h-5 w-5 fill-white stroke-[2.25] text-silver" />
             {filledQuarters > 0 ? (
               <span
                 className="absolute inset-y-0 left-0 overflow-hidden"
                 style={{ width: `${filledQuarters * 25}%` }}
               >
-                <Diamond className="absolute inset-0 h-3.5 w-3.5 max-w-none fill-current stroke-[2.5] text-sky-blue" />
+                <Diamond className="absolute inset-0 h-5 w-5 max-w-none fill-current stroke-[2.25] text-sky-blue" />
               </span>
             ) : null}
           </span>
