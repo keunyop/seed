@@ -20,7 +20,7 @@ import {
   getWeeklyAttendanceBuckets,
 } from "@/lib/family/stats";
 import type { AttendanceMemo } from "@/lib/family/types";
-import { getActivityLabel } from '@/lib/family/ministry-group';
+import { getActivityLabel, getServiceWeekday } from '@/lib/family/ministry-group';
 import { getCurrentMonthWindowStart } from '@/lib/family/report-period';
 
 type ActiveReport =
@@ -31,7 +31,10 @@ type ActiveReport =
 
 const MEMOS_PER_PAGE = 5;
 const RECENT_POINT_COUNT = 4;
-const FULL_ATTENDANCE_START_SUNDAY = "2026-07-05";
+const FULL_ATTENDANCE_START_DATE_BY_GROUP = {
+  elementary: "2026-07-05",
+  awana: "2026-07-03",
+} as const;
 const FULL_ATTENDANCE_WEEK_COUNT = 52;
 const FULL_RANGE_START_YEAR = 2026;
 const FULL_RANGE_START_MONTH = 7;
@@ -80,6 +83,7 @@ export function ReportsClient() {
     setAttendanceMemoAcknowledged,
   } = useFamilyOpenStore();
   const activityLabel = getActivityLabel(ministryGroup);
+  const serviceWeekday = getServiceWeekday(ministryGroup);
   const { currentTeacherId, isAdmin } = useTeacherAuth();
   const [referenceDate] = useState(getLocalIsoDate);
   const [activeReport, setActiveReport] = useState<ActiveReport | null>(null);
@@ -98,12 +102,18 @@ export function ReportsClient() {
   const closeActiveReport = useCallback(() => setActiveReport(null), []);
 
   const recentWeeklyBuckets = useMemo(
-    () => getRecentWeeklyAttendanceBuckets(store, referenceDate, RECENT_POINT_COUNT),
-    [referenceDate, store],
+    () => getRecentWeeklyAttendanceBuckets(store, referenceDate, RECENT_POINT_COUNT, serviceWeekday),
+    [referenceDate, serviceWeekday, store],
   );
   const fullWeeklyBuckets = useMemo(
-    () => getWeeklyAttendanceBuckets(store, FULL_ATTENDANCE_START_SUNDAY, FULL_ATTENDANCE_WEEK_COUNT),
-    [store],
+    () =>
+      getWeeklyAttendanceBuckets(
+        store,
+        FULL_ATTENDANCE_START_DATE_BY_GROUP[ministryGroup],
+        FULL_ATTENDANCE_WEEK_COUNT,
+        serviceWeekday,
+      ),
+    [ministryGroup, serviceWeekday, store],
   );
   const recentQtBuckets = useMemo(
     () =>
@@ -385,6 +395,7 @@ export function ReportsClient() {
               ) : null}
             </div>
 
+            {ministryGroup === "elementary" ? (
             <section className="mt-4 rounded-[12px] border-2 border-cloud-gray p-4 sm:p-6" aria-labelledby="integrated-memos-title">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="flex items-center gap-2 text-xl font-extrabold text-almost-black" id="integrated-memos-title">
@@ -478,6 +489,7 @@ export function ReportsClient() {
                 </div>
               ) : null}
             </section>
+            ) : null}
           </>
         )}
       </div>

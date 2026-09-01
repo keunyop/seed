@@ -4,6 +4,7 @@ import { Check, Info, LockKeyhole } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ChildAvatar } from "@/components/domain/child-avatar";
+import { AttendanceDiamondProgress } from "@/components/domain/attendance-diamond-progress";
 import { MonthlyAttendanceOverview } from "@/components/domain/monthly-attendance-overview";
 import { BottomNavigation } from "@/components/layout/bottom-navigation";
 import { ChildDetailModal } from "@/components/domain/child-detail-modal";
@@ -15,6 +16,7 @@ import {
   canCreateSecretAttendanceMemo,
   canViewAttendanceMemo,
   getAttendanceMemosForView,
+  getAttendanceDiamondProgress,
   getAttendanceRosterChildren,
   getChildRecord,
   getClassLabel,
@@ -24,7 +26,7 @@ import {
 } from "@/lib/family/stats";
 import { cn } from "@/lib/utils";
 import type { AttendanceRecord, FamilyChild } from "@/lib/family/types";
-import { getActivityLabel } from '@/lib/family/ministry-group';
+import { getActivityLabel, getServiceWeekday, type MinistryGroup } from '@/lib/family/ministry-group';
 
 type AttendanceClientProps = {
   initialClassId?: string;
@@ -124,7 +126,14 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
   } = useFamilyOpenStore();
   const activityLabel = getActivityLabel(ministryGroup);
   const { currentTeacherId, isAdmin, isAuthenticated } = useTeacherAuth();
-  const [sessionDate, setSessionDate] = useState(() => getNearestWeekdayDate(getLocalIsoDate(), 0));
+  const [sessionDateByGroup, setSessionDateByGroup] = useState<Record<MinistryGroup, string>>(() => {
+    const today = getLocalIsoDate();
+    return {
+      elementary: getNearestWeekdayDate(today, getServiceWeekday("elementary")),
+      awana: getNearestWeekdayDate(today, getServiceWeekday("awana")),
+    };
+  });
+  const sessionDate = sessionDateByGroup[ministryGroup];
   const [viewMode, setViewMode] = useState<AttendanceViewMode>("daily");
   const [monthValue, setMonthValue] = useState(() => getLocalIsoDate().slice(0, 7));
   const [classId, setClassId] = useState(initialClassId ?? ALL_CLASSES_VALUE);
@@ -166,6 +175,10 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
   const isSavingAnyRecord = Object.values(recordSaveStateByChildId).some((state) => state === "saving");
   const isSavingAnyChildNote = Object.values(noteSaveStateByChildId).some((state) => state === "saving");
   const isContextLocked = !isReady || !isAuthenticated || isSavingAnyRecord || isSavingAnyChildNote || isSavingMemo;
+
+  function setSessionDate(nextSessionDate: string) {
+    setSessionDateByGroup((current) => ({ ...current, [ministryGroup]: nextSessionDate }));
+  }
 
   function setActiveDraft(recipe: (current: AttendanceDraft) => AttendanceDraft) {
     setDraftState((current) => updateAttendanceDraftForContext(current, sessionKey, freshDraft, recipe));
@@ -464,14 +477,21 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
                 const noteSaveState = noteSaveStateByChildId[child.id] ?? "idle";
                 const isSavingNote = noteSaveState === "saving";
                 const isNoteDirty = (record.note ?? "") !== (storedRecord.note ?? "");
+                const diamondProgress = getAttendanceDiamondProgress(store, child.id, {
+                  sessionDate,
+                  status: record.status,
+                });
                 return (
                   <article className="rounded-[12px] border-2 border-cloud-gray p-3" key={child.id}>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex min-w-0 items-center gap-3">
                         <ChildAvatar gender={child.gender} name={child.name} photoDataUrl={child.photoDataUrl} />
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex min-w-0 items-center gap-2">
                             <h3 className="truncate text-lg font-extrabold text-almost-black">{child.name}</h3>
+                            {ministryGroup === "awana" ? (
+                              <AttendanceDiamondProgress childName={child.name} progress={diamondProgress} />
+                            ) : null}
                             <button
                               aria-label={`${child.name} 상세정보`}
                               className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sky-blue-text transition-colors hover:bg-sky-blue/10"
@@ -512,6 +532,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
                         </button>
                       </div>
                     </div>
+                    {ministryGroup === "elementary" ? (
                     <div className="mt-3 border-t-2 border-cloud-gray pt-3">
                       <label className="block text-xs font-extrabold text-graphite" htmlFor={`child-note-${child.id}`}>
                         아이 메모
@@ -575,6 +596,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
                               : ""}
                       </p>
                     </div>
+                    ) : null}
                     <div className="mt-2 flex min-h-6 items-center justify-end gap-2">
                       <p
                         aria-live="polite"
@@ -607,7 +629,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
           )}
         </section>
 
-        {selectedClassId ? (
+        {ministryGroup === "elementary" && selectedClassId ? (
           <section className="mt-4 rounded-[12px] border-2 border-cloud-gray p-4 sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-extrabold text-almost-black">이번 주 메모</h2>

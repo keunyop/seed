@@ -6,6 +6,7 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
   const mutations: Array<{ method: string; table: string; body: unknown }> = [];
   let shouldFailRecordUpsert = true;
   let shouldFailNoteUpsert = true;
+  await page.clock.setFixedTime(new Date("2026-07-13T12:00:00-07:00"));
 
   await page.route("**/rest/v1/**", async (route) => {
     const request = route.request();
@@ -97,6 +98,37 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
             updated_at: "2026-06-28T00:00:00.000Z",
           },
         ]);
+      }
+
+      if (table === "attendance_sessions") {
+        return json(
+          ["2026-06-19", "2026-06-26", "2026-07-03"].map((sessionDate, index) => ({
+            id: `session-awana-${index + 1}`,
+            organization_id: ORGANIZATION_ID,
+            session_date: sessionDate,
+            note: "",
+            share_with_pastor: false,
+            saved_at: `${sessionDate}T18:00:00.000Z`,
+            created_at: `${sessionDate}T18:00:00.000Z`,
+            updated_at: `${sessionDate}T18:00:00.000Z`,
+          })),
+        );
+      }
+
+      if (table === "attendance_records") {
+        return json(
+          ["2026-06-19", "2026-06-26", "2026-07-03"].map((sessionDate, index) => ({
+            id: `record-awana-${index + 1}`,
+            organization_id: ORGANIZATION_ID,
+            session_id: `session-awana-${index + 1}`,
+            child_id: "child-ios",
+            status: "present",
+            qt_completed: false,
+            note: null,
+            created_at: `${sessionDate}T18:00:00.000Z`,
+            updated_at: `${sessionDate}T18:00:00.000Z`,
+          })),
+        );
       }
 
       if (table === "attendance_memos") {
@@ -271,6 +303,14 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
   await page.getByRole('button', { name: '로그인' }).click();
 
   const awanaRow = page.locator('article').filter({ hasText: '아이폰테스트' });
+  await expect(page.getByRole('textbox', { name: '날짜', exact: true })).toHaveValue('2026-07-10');
+  await expect(
+    awanaRow.getByRole('img', { name: '아이폰테스트 출석 3회, 다이아몬드 0개 완성, 다음 다이아몬드 3/4' }),
+  ).toBeVisible();
+  await expect(awanaRow.getByRole('textbox', { name: '아이 메모', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: '이번 주 메모' })).toHaveCount(0);
+  await awanaRow.getByRole('button', { name: '출석' }).click();
+  await expect(awanaRow.getByRole('img', { name: '아이폰테스트 출석 4회, 다이아몬드 1개 완성' })).toBeVisible();
   await expect(awanaRow.getByRole('button', { name: '암송' })).toBeVisible();
   await awanaRow.getByRole('button', { name: '암송' }).click();
   await expect(awanaRow.getByText('저장됨')).toBeVisible();
@@ -283,6 +323,9 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
   await page.getByRole('button', { name: '전체 현황' }).click();
   await expect(page.getByRole('heading', { name: '아이별 전체 현황' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: '월', exact: true })).toHaveCount(0);
+
+  const awanaOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+  expect(awanaOverflow).toBe(false);
 
   await page.reload();
   await expect(page.getByRole('button', { name: 'AWANA' })).toHaveAttribute('aria-pressed', 'true');

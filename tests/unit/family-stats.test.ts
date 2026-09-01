@@ -10,6 +10,7 @@ import {
   getAllAttendanceOverview,
   getActiveChildrenWithoutBirthday,
   getAttendanceMemosForView,
+  getAttendanceDiamondProgress,
   getAttendanceRosterChildren,
   getChildRecord,
   getClassLabel,
@@ -175,6 +176,75 @@ describe("family open stats", () => {
     expect(buckets.map((bucket) => bucket.sessionDate)).toEqual(["2026-07-05", "2026-07-12", "2026-07-19"]);
     expect(buckets.map((bucket) => bucket.presentCount)).toEqual([0, 1, 0]);
     expect(() => getWeeklyAttendanceBuckets(store, "2026-07-06", 3)).toThrow("must be a Sunday");
+  });
+
+  it("builds AWANA attendance buckets on Fridays", () => {
+    const store = createDefaultFamilyOpenStore();
+    store.attendanceByDate["2026-07-10"] = {
+      sessionDate: "2026-07-10",
+      note: "",
+      savedAt: "2026-07-10T20:00:00.000Z",
+      records: {
+        "child-harin": { status: "present", qtCompleted: false },
+      },
+    };
+
+    const buckets = getWeeklyAttendanceBuckets(store, "2026-07-03", 3, 5);
+    expect(buckets.map((bucket) => bucket.sessionDate)).toEqual(["2026-07-03", "2026-07-10", "2026-07-17"]);
+    expect(buckets.map((bucket) => bucket.presentCount)).toEqual([0, 1, 0]);
+    expect(getRecentWeeklyAttendanceBuckets(store, "2026-07-11", 3, 5).map((bucket) => bucket.sessionDate)).toEqual([
+      "2026-06-26",
+      "2026-07-03",
+      "2026-07-10",
+    ]);
+    expect(() => getWeeklyAttendanceBuckets(store, "2026-07-04", 3, 5)).toThrow("must be a Friday");
+  });
+
+  it("fills one diamond quarter per distinct present date and caps four diamonds at 16 attendances", () => {
+    const store = createDefaultFamilyOpenStore();
+    store.attendanceByDate = Object.fromEntries(
+      ["2026-07-03", "2026-07-10", "2026-07-17", "2026-07-24", "2026-07-31"].map((sessionDate) => [
+        sessionDate,
+        {
+          sessionDate,
+          note: "",
+          savedAt: `${sessionDate}T20:00:00.000Z`,
+          records: { "child-harin": { status: "present" as const, qtCompleted: false } },
+        },
+      ]),
+    );
+
+    expect(getAttendanceDiamondProgress(store, "child-joon")).toBe(0);
+    expect(getAttendanceDiamondProgress(store, "child-harin")).toBe(5);
+    expect(
+      getAttendanceDiamondProgress(store, "child-harin", { sessionDate: "2026-07-31", status: undefined }),
+    ).toBe(4);
+
+    delete store.attendanceByDate["2026-07-24"];
+    delete store.attendanceByDate["2026-07-31"];
+    expect(getAttendanceDiamondProgress(store, "child-harin")).toBe(3);
+    expect(
+      getAttendanceDiamondProgress(store, "child-harin", { sessionDate: "2026-08-07", status: "present" }),
+    ).toBe(4);
+    expect(
+      getAttendanceDiamondProgress(store, "child-harin", { sessionDate: "2026-07-17", status: undefined }),
+    ).toBe(2);
+
+    store.attendanceByDate = Object.fromEntries(
+      Array.from({ length: 17 }, (_, index) => {
+        const sessionDate = `2026-08-${String(index + 1).padStart(2, "0")}`;
+        return [
+          sessionDate,
+          {
+            sessionDate,
+            note: "",
+            savedAt: `${sessionDate}T20:00:00.000Z`,
+            records: { "child-harin": { status: "present" as const, qtCompleted: false } },
+          },
+        ];
+      }),
+    );
+    expect(getAttendanceDiamondProgress(store, "child-harin")).toBe(16);
   });
 
   it("builds a mobile monthly overview from every Sunday for the currently selected class", () => {

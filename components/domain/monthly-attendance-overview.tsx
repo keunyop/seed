@@ -3,6 +3,7 @@
 import { Check, ChevronDown } from "lucide-react";
 import { useMemo, useState } from "react";
 import { ChildAvatar } from "@/components/domain/child-avatar";
+import { AttendanceDiamondProgress } from "@/components/domain/attendance-diamond-progress";
 import { useFamilyOpenStore } from "@/components/domain/use-family-open-store";
 import {
   getAllAttendanceOverview,
@@ -152,7 +153,12 @@ export function MonthlyAttendanceOverview({
               <summary className="flex min-h-20 cursor-pointer list-none items-center gap-3 p-3 marker:content-none">
                 <ChildAvatar gender={child.gender} name={child.name} photoDataUrl={child.photoDataUrl} />
                 <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-lg font-extrabold text-almost-black">{child.name}</h3>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <h3 className="truncate text-lg font-extrabold text-almost-black">{child.name}</h3>
+                    {isAllDates ? (
+                      <AttendanceDiamondProgress childName={child.name} progress={presentCount} />
+                    ) : null}
+                  </div>
                   <p className="mt-1 text-sm font-bold text-graphite">
                     출석 {presentCount}/{overview.dates.length} · {activityLabel} {qtCount}회
                   </p>

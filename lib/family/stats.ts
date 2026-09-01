@@ -33,6 +33,9 @@ export type MonthlyAttendanceOverview = {
 };
 
 export const RECENT_ATTENDANCE_WEEK_COUNT = 8;
+export const ATTENDANCE_DIAMOND_COUNT = 4;
+export const ATTENDANCES_PER_DIAMOND = 4;
+export const ATTENDANCE_DIAMOND_PROGRESS_MAX = ATTENDANCE_DIAMOND_COUNT * ATTENDANCES_PER_DIAMOND;
 
 const koreanNameCollator = new Intl.Collator("ko-KR", { sensitivity: "base" });
 
@@ -213,6 +216,27 @@ export function getSession(store: FamilyOpenStore, sessionDate: string) {
 
 export function getChildRecord(session: AttendanceSession, childId: string): AttendanceRecord {
   return session.records[childId] ?? { qtCompleted: false };
+}
+
+export function getAttendanceDiamondProgress(
+  store: FamilyOpenStore,
+  childId: string,
+  currentRecord?: { sessionDate: string; status?: AttendanceRecord["status"] },
+) {
+  const presentDates = new Set(
+    Object.entries(store.attendanceByDate)
+      .filter(([, session]) => session.records[childId]?.status === "present")
+      .map(([sessionDate]) => sessionDate),
+  );
+
+  if (currentRecord) {
+    presentDates.delete(currentRecord.sessionDate);
+    if (currentRecord.status === "present") {
+      presentDates.add(currentRecord.sessionDate);
+    }
+  }
+
+  return Math.min(ATTENDANCE_DIAMOND_PROGRESS_MAX, presentDates.size);
 }
 
 export function getAttendanceMemosForView(store: FamilyOpenStore, sessionDate: string, classId?: string) {
@@ -444,20 +468,26 @@ function shiftCalendarMonth(year: number, month: number, offset: number) {
 
 export function getWeeklyAttendanceBuckets(
   store: FamilyOpenStore,
-  startSunday: string,
+  startDate: string,
   weekCount: number,
+  weekday = 0,
 ): WeeklyAttendanceBucket[] {
   assertPositiveInteger(weekCount, "Week count");
-  const start = new Date(`${startSunday}T00:00:00.000Z`);
-  if (Number.isNaN(start.getTime()) || start.toISOString().slice(0, 10) !== startSunday) {
-    throw new Error("Start Sunday must be a valid ISO date.");
+  if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) {
+    throw new Error("Weekday must be an integer from 0 to 6.");
   }
-  if (start.getUTCDay() !== 0) {
-    throw new Error("Start Sunday must be a Sunday.");
+
+  const start = new Date(`${startDate}T00:00:00.000Z`);
+  const weekdayLabel = weekday === 0 ? "Sunday" : weekday === 5 ? "Friday" : `weekday ${weekday}`;
+  if (Number.isNaN(start.getTime()) || start.toISOString().slice(0, 10) !== startDate) {
+    throw new Error(`Start date must be a valid ISO date.`);
+  }
+  if (start.getUTCDay() !== weekday) {
+    throw new Error(`Start date must be a ${weekdayLabel}.`);
   }
 
   return Array.from({ length: weekCount }, (_, index) => {
-    const sessionDate = shiftIsoDate(startSunday, index * 7);
+    const sessionDate = shiftIsoDate(startDate, index * 7);
     const attendees = getWeeklyAttendanceDetails(store, sessionDate).filter((item) => item.status === "present");
 
     return {
@@ -472,12 +502,13 @@ export function getRecentWeeklyAttendanceBuckets(
   store: FamilyOpenStore,
   referenceDate: string,
   weekCount = RECENT_ATTENDANCE_WEEK_COUNT,
+  weekday = 0,
 ): WeeklyAttendanceBucket[] {
   assertPositiveInteger(weekCount, "Week count");
 
-  const latestSunday = getNearestWeekdayDate(referenceDate, 0);
-  const startSunday = shiftIsoDate(latestSunday, (weekCount - 1) * -7);
-  return getWeeklyAttendanceBuckets(store, startSunday, weekCount);
+  const latestServiceDate = getNearestWeekdayDate(referenceDate, weekday);
+  const startDate = shiftIsoDate(latestServiceDate, (weekCount - 1) * -7);
+  return getWeeklyAttendanceBuckets(store, startDate, weekCount, weekday);
 }
 
 export function getMonthlyQtBuckets(

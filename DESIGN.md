@@ -104,6 +104,11 @@ Large, organic vector illustrations featuring diverse, playful characters. Built
 
 Text is colored 'Sky Blue' ('#1cb0f6') and often includes a subtle underline on hover. It uses the standard 'din-round' body font.
 
+### AWANA Attendance Diamonds
+**Role:** Four-step attendance reward progress beside each AWANA child name.
+
+Show exactly four compact diamond outlines in one non-wrapping row. Empty diamonds use 'Silver' (`#afafaf`) on white. Each recorded attendance fills one quarter of the next diamond with 'Sky Blue' (`#1cb0f6`), so four attendances complete one diamond and all four diamonds represent 16 attendances. Keep the group beside the child name without shrinking the attendance controls, and expose the attendance count, completed diamonds, and current quarter as accessible text rather than relying on color alone.
+
 ### Language Flag Item
 **Role:** Used in the language selector list.
 

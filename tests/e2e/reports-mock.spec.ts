@@ -174,6 +174,16 @@ test("reports show accessible bar details, avatar/list views, and integrated mem
           created_at: "2026-07-01T18:00:00.000Z",
           updated_at: "2026-07-01T18:00:00.000Z",
         },
+        {
+          id: "session-awana-friday",
+          organization_id: ORGANIZATION_ID,
+          session_date: "2026-07-10",
+          note: "",
+          share_with_pastor: false,
+          saved_at: "2026-07-10T18:00:00.000Z",
+          created_at: "2026-07-10T18:00:00.000Z",
+          updated_at: "2026-07-10T18:00:00.000Z",
+        },
       ]);
     }
 
@@ -228,6 +238,16 @@ test("reports show accessible bar details, avatar/list views, and integrated mem
           qt_completed: false,
           created_at: "2026-07-05T18:00:00.000Z",
           updated_at: "2026-07-05T18:00:00.000Z",
+        },
+        {
+          id: "record-awana-friday",
+          organization_id: ORGANIZATION_ID,
+          session_id: "session-awana-friday",
+          child_id: "child-present",
+          status: "present",
+          qt_completed: true,
+          created_at: "2026-07-10T18:00:00.000Z",
+          updated_at: "2026-07-10T18:00:00.000Z",
         },
       ]);
     }
@@ -392,6 +412,8 @@ test("reports show accessible bar details, avatar/list views, and integrated mem
   await page.getByRole('button', { name: '로그인' }).click();
   await expect(page.getByRole('heading', { name: '월별 암송 완료자' })).toBeVisible();
   await expect(page.getByRole('heading', { name: '월별 생일자' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '2026년 7월 10일 출석자 1명, 상세 보기' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '선생님 통합 메모' })).toHaveCount(0);
 
   const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   expect(hasHorizontalOverflow).toBe(false);

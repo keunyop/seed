@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { assertIsoDate, getNearestWeekdayDate } from "@/lib/dates/service-week";
+import { getServiceWeekday } from "@/lib/family/ministry-group";
 
 describe("service week dates", () => {
   it("keeps Sunday when the base date is already Sunday", () => {
@@ -11,8 +12,14 @@ describe("service week dates", () => {
     expect(getNearestWeekdayDate("2026-06-26", 0)).toBe("2026-06-28");
   });
 
+  it("uses Friday as the AWANA service day", () => {
+    expect(getServiceWeekday("elementary")).toBe(0);
+    expect(getServiceWeekday("awana")).toBe(5);
+    expect(getNearestWeekdayDate("2026-08-31", getServiceWeekday("awana"))).toBe("2026-08-28");
+    expect(getNearestWeekdayDate("2026-09-03", getServiceWeekday("awana"))).toBe("2026-09-04");
+  });
+
   it("rejects impossible ISO dates", () => {
     expect(() => assertIsoDate("2026-02-30")).toThrow("valid calendar date");
   });
 });
-

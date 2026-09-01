@@ -21,3 +21,7 @@ export function getMinistryGroupLabel(group: MinistryGroup) {
 export function getActivityLabel(group: MinistryGroup) {
   return group === 'awana' ? '암송' : '큐티';
 }
+
+export function getServiceWeekday(group: MinistryGroup): 0 | 5 {
+  return group === 'awana' ? 5 : 0;
+}
