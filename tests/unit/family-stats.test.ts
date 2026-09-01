@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createDefaultFamilyOpenStore, createEmptyFamilyOpenStore } from "@/lib/family/default-store";
+import { AWANA_START_DATE } from "@/lib/family/ministry-group";
 import {
   formatChildBirthDate,
   formatParentRelation,
@@ -203,7 +204,7 @@ describe("family open stats", () => {
   it("fills one diamond quarter per distinct present date and caps three diamonds at 12 attendances", () => {
     const store = createDefaultFamilyOpenStore();
     store.attendanceByDate = Object.fromEntries(
-      ["2026-07-03", "2026-07-10", "2026-07-17", "2026-07-24", "2026-07-31"].map((sessionDate) => [
+      ["2026-08-28", "2026-09-04", "2026-09-11", "2026-09-18", "2026-09-25", "2026-10-02"].map((sessionDate) => [
         sessionDate,
         {
           sessionDate,
@@ -217,22 +218,24 @@ describe("family open stats", () => {
     expect(getAttendanceDiamondProgress(store, "child-joon")).toBe(0);
     expect(getAttendanceDiamondProgress(store, "child-harin")).toBe(5);
     expect(
-      getAttendanceDiamondProgress(store, "child-harin", { sessionDate: "2026-07-31", status: undefined }),
+      getAttendanceDiamondProgress(store, "child-harin", { sessionDate: "2026-10-02", status: undefined }),
     ).toBe(4);
 
-    delete store.attendanceByDate["2026-07-24"];
-    delete store.attendanceByDate["2026-07-31"];
+    delete store.attendanceByDate["2026-09-25"];
+    delete store.attendanceByDate["2026-10-02"];
     expect(getAttendanceDiamondProgress(store, "child-harin")).toBe(3);
     expect(
-      getAttendanceDiamondProgress(store, "child-harin", { sessionDate: "2026-08-07", status: "present" }),
+      getAttendanceDiamondProgress(store, "child-harin", { sessionDate: "2026-10-09", status: "present" }),
     ).toBe(4);
     expect(
-      getAttendanceDiamondProgress(store, "child-harin", { sessionDate: "2026-07-17", status: undefined }),
+      getAttendanceDiamondProgress(store, "child-harin", { sessionDate: "2026-09-18", status: undefined }),
     ).toBe(2);
 
     store.attendanceByDate = Object.fromEntries(
-      Array.from({ length: 13 }, (_, index) => {
-        const sessionDate = `2026-08-${String(index + 1).padStart(2, "0")}`;
+      ["2026-08-28", ...Array.from({ length: 13 }, (_, index) => {
+        const date = new Date(Date.UTC(2026, 8, 4 + index * 7));
+        return date.toISOString().slice(0, 10);
+      })].map((sessionDate) => {
         return [
           sessionDate,
           {
@@ -299,28 +302,34 @@ describe("family open stats", () => {
     ]);
   });
 
-  it('builds an all-date attendance overview newest first for AWANA', () => {
+  it('builds an AWANA all-date overview from September 4 and excludes August 28', () => {
     const store = createDefaultFamilyOpenStore();
     store.attendanceByDate = {
-      '2026-07-05': {
-        sessionDate: '2026-07-05',
+      '2026-08-28': {
+        sessionDate: '2026-08-28',
         note: '',
-        savedAt: '2026-07-05T20:00:00.000Z',
+        savedAt: '2026-08-28T20:00:00.000Z',
+        records: { 'child-harin': { status: 'present', qtCompleted: true } },
+      },
+      '2026-09-04': {
+        sessionDate: '2026-09-04',
+        note: '',
+        savedAt: '2026-09-04T20:00:00.000Z',
         records: { 'child-harin': { status: 'present', qtCompleted: false } },
       },
-      '2026-08-16': {
-        sessionDate: '2026-08-16',
+      '2026-09-11': {
+        sessionDate: '2026-09-11',
         note: '',
-        savedAt: '2026-08-16T20:00:00.000Z',
-        records: { 'child-harin': { status: 'present', qtCompleted: true } },
+        savedAt: '2026-09-11T20:00:00.000Z',
+        records: { 'child-harin': { status: 'absent', qtCompleted: true } },
       },
     };
 
-    const overview = getAllAttendanceOverview(store, 'class-kindergarten');
+    const overview = getAllAttendanceOverview(store, 'class-kindergarten', AWANA_START_DATE);
 
-    expect(overview.dates.map((item) => item.sessionDate)).toEqual(['2026-08-16', '2026-07-05']);
+    expect(overview.dates.map((item) => item.sessionDate)).toEqual(['2026-09-11', '2026-09-04']);
     expect(overview.children.find((item) => item.child.id === 'child-harin')).toMatchObject({
-      presentCount: 2,
+      presentCount: 1,
       qtCount: 1,
     });
   });

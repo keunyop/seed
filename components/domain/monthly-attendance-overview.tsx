@@ -11,7 +11,7 @@ import {
   getMonthlyAttendanceOverview,
   getSession,
 } from "@/lib/family/stats";
-import { getActivityLabel } from '@/lib/family/ministry-group';
+import { AWANA_START_DATE, getActivityLabel } from '@/lib/family/ministry-group';
 import { cn } from "@/lib/utils";
 import type { AttendanceRecord } from "@/lib/family/types";
 
@@ -56,7 +56,7 @@ export function MonthlyAttendanceOverview({
   const activityLabel = getActivityLabel(ministryGroup);
   const overview = useMemo(
     () => isAllDates
-      ? getAllAttendanceOverview(store, classId)
+      ? getAllAttendanceOverview(store, classId, AWANA_START_DATE)
       : getMonthlyAttendanceOverview(store, classId, monthValue),
     [classId, isAllDates, monthValue, store],
   );

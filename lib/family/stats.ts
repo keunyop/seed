@@ -15,6 +15,7 @@ import type {
   WeeklyAttendanceDetail,
 } from "@/lib/family/types";
 import { getNearestWeekdayDate } from "@/lib/dates/service-week";
+import { AWANA_START_DATE } from "@/lib/family/ministry-group";
 
 export type ChildrenSortMode = "name" | "class";
 
@@ -225,13 +226,15 @@ export function getAttendanceDiamondProgress(
 ) {
   const presentDates = new Set(
     Object.entries(store.attendanceByDate)
-      .filter(([, session]) => session.records[childId]?.status === "present")
+      .filter(([sessionDate, session]) =>
+        sessionDate >= AWANA_START_DATE && session.records[childId]?.status === "present"
+      )
       .map(([sessionDate]) => sessionDate),
   );
 
   if (currentRecord) {
     presentDates.delete(currentRecord.sessionDate);
-    if (currentRecord.status === "present") {
+    if (currentRecord.sessionDate >= AWANA_START_DATE && currentRecord.status === "present") {
       presentDates.add(currentRecord.sessionDate);
     }
   }
@@ -422,8 +425,11 @@ export function getMonthlyAttendanceOverview(
 export function getAllAttendanceOverview(
   store: FamilyOpenStore,
   classId?: string,
+  startDate?: string,
 ): MonthlyAttendanceOverview {
-  const dates = Object.keys(store.attendanceByDate).sort((a, b) => b.localeCompare(a));
+  const dates = Object.keys(store.attendanceByDate)
+    .filter((sessionDate) => !startDate || sessionDate >= startDate)
+    .sort((a, b) => b.localeCompare(a));
 
   return getAttendanceOverviewForDates(store, classId, dates);
 }

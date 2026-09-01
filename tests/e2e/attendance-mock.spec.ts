@@ -104,7 +104,7 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
 
       if (table === "attendance_sessions") {
         return json(
-          ["2026-06-19", "2026-06-26", "2026-07-03"].map((sessionDate, index) => ({
+          ["2026-08-28", "2026-09-11", "2026-09-18", "2026-09-25"].map((sessionDate, index) => ({
             id: `session-awana-${index + 1}`,
             organization_id: ORGANIZATION_ID,
             session_date: sessionDate,
@@ -119,7 +119,7 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
 
       if (table === "attendance_records") {
         return json(
-          ["2026-06-19", "2026-06-26", "2026-07-03"].map((sessionDate, index) => ({
+          ["2026-08-28", "2026-09-11", "2026-09-18", "2026-09-25"].map((sessionDate, index) => ({
             id: `record-awana-${index + 1}`,
             organization_id: ORGANIZATION_ID,
             session_id: `session-awana-${index + 1}`,
@@ -316,7 +316,9 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
   await page.getByRole('button', { name: '로그인' }).click();
 
   const awanaRow = page.locator('article').filter({ hasText: '아이폰테스트' });
-  await expect(page.getByRole('textbox', { name: '날짜', exact: true })).toHaveValue('2026-07-10');
+  const awanaDateInput = page.getByRole('textbox', { name: '날짜', exact: true });
+  await expect(awanaDateInput).toHaveValue('2026-09-04');
+  await expect(awanaDateInput).toHaveAttribute('min', '2026-09-04');
   await expect(
     awanaRow.getByRole('img', { name: '아이폰테스트 출석 3회, 다이아몬드 0개 완성, 다음 다이아몬드 3/4' }),
   ).toBeVisible();
@@ -336,6 +338,8 @@ test("mobile WebKit saves attendance rows immediately and memo separately", asyn
   await page.getByRole('button', { name: '전체 현황' }).click();
   await expect(page.getByRole('heading', { name: '아이별 전체 현황' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: '월', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^8월 28일/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^9월 4일/ })).toBeVisible();
 
   const awanaOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   expect(awanaOverflow).toBe(false);

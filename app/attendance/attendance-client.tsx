@@ -11,7 +11,6 @@ import { ChildDetailModal } from "@/components/domain/child-detail-modal";
 import { useTeacherAuth } from "@/components/domain/teacher-auth-provider";
 import { useFamilyOpenStore } from "@/components/domain/use-family-open-store";
 import { PressableButton } from "@/components/ui/pressable-button";
-import { getNearestWeekdayDate } from "@/lib/dates/service-week";
 import {
   canCreateSecretAttendanceMemo,
   canViewAttendanceMemo,
@@ -26,7 +25,12 @@ import {
 } from "@/lib/family/stats";
 import { cn } from "@/lib/utils";
 import type { AttendanceRecord, FamilyChild } from "@/lib/family/types";
-import { getActivityLabel, getServiceWeekday, type MinistryGroup } from '@/lib/family/ministry-group';
+import {
+  AWANA_START_DATE,
+  getActivityLabel,
+  getDefaultAttendanceDate,
+  type MinistryGroup,
+} from '@/lib/family/ministry-group';
 
 type AttendanceClientProps = {
   initialClassId?: string;
@@ -129,8 +133,8 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
   const [sessionDateByGroup, setSessionDateByGroup] = useState<Record<MinistryGroup, string>>(() => {
     const today = getLocalIsoDate();
     return {
-      elementary: getNearestWeekdayDate(today, getServiceWeekday("elementary")),
-      awana: getNearestWeekdayDate(today, getServiceWeekday("awana")),
+      elementary: getDefaultAttendanceDate("elementary", today),
+      awana: getDefaultAttendanceDate("awana", today),
     };
   });
   const sessionDate = sessionDateByGroup[ministryGroup];
@@ -391,6 +395,7 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
               <input
                 className="mt-2 min-h-12 w-full max-w-full min-w-0 rounded-[12px] border-2 border-cloud-gray px-2 text-sm font-bold text-almost-black sm:px-3 sm:text-base"
                 disabled={isContextLocked}
+                min={viewMode === "daily" && ministryGroup === "awana" ? AWANA_START_DATE : undefined}
                 onChange={(event) => {
                   setRecordSaveStateByChildId({});
                   setNoteSaveStateByChildId({});
@@ -398,7 +403,11 @@ export function AttendanceClient({ initialClassId }: AttendanceClientProps) {
                   setMemoError("");
                   setMemoPage(1);
                   if (viewMode === "daily") {
-                    setSessionDate(event.target.value);
+                    setSessionDate(
+                      ministryGroup === "awana" && event.target.value < AWANA_START_DATE
+                        ? AWANA_START_DATE
+                        : event.target.value,
+                    );
                   } else {
                     setMonthValue(event.target.value);
                   }
